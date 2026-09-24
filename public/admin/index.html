@@ -3,136 +3,248 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Console — Sri Mahalakshmi Pickles &amp; Spices</title>
+<title>Sri Mahalakshmi Pickles &amp; Spices — Homemade Andhra Pickles &amp; Podi</title>
+<meta name="description" content="Order authentic Andhra-style pickles, podi and karam online. Amla, mango, chicken, mutton pickles and more. WhatsApp or website order, cash on delivery available.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🫙</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Yatra+One&family=Mukta:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="admin.css">
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-<!-- ============== LOGIN ============== -->
-<div id="loginScreen" class="login-screen">
-  <form id="loginForm" class="login-card">
-    <div class="brand-mark">
+<header>
+  <div class="header-row wrap">
+    <a href="#top" class="brand" aria-label="Sri Mahalakshmi Pickles and Spices home">
       <svg viewBox="0 0 64 64" aria-hidden="true">
-        <circle cx="32" cy="32" r="31" fill="#2E7D46"/>
-        <path d="M20 26h24v22a4 4 0 0 1-4 4H24a4 4 0 0 1-4-4V26z" fill="#FCEFC7"/>
-        <rect x="18" y="20" width="28" height="8" rx="3" fill="#1F5A32"/>
-        <rect x="26" y="12" width="12" height="9" rx="2" fill="#1F5A32"/>
+        <circle cx="32" cy="32" r="31" fill="#1C86C8"/>
+        <path d="M20 26h24v22a4 4 0 0 1-4 4H24a4 4 0 0 1-4-4V26z" fill="#EAF6FD"/>
+        <rect x="18" y="20" width="28" height="8" rx="3" fill="#0D5A8F"/>
+        <rect x="26" y="12" width="12" height="9" rx="2" fill="#0D5A8F"/>
+        <path d="M24 33c3 8 13 8 16 0" stroke="#1C86C8" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        <path d="M24 41c3 6 13 6 16 0" stroke="#1C86C8" stroke-width="2.4" fill="none" stroke-linecap="round"/>
       </svg>
-    </div>
-    <h1>Admin console</h1>
-    <p class="muted">Sri Mahalakshmi Pickles &amp; Spices</p>
-    <div class="field">
-      <label for="adminPassword">Password</label>
-      <input type="password" id="adminPassword" placeholder="Enter admin password" required autofocus>
-    </div>
-    <p id="loginError" class="login-error"></p>
-    <button type="submit" class="btn btn-primary btn-block">Log in</button>
-  </form>
-</div>
-
-<!-- ============== DASHBOARD ============== -->
-<div id="dashboard" class="dashboard" hidden>
-  <header class="admin-header">
-    <div class="brand">
-      <svg viewBox="0 0 64 64" aria-hidden="true">
-        <circle cx="32" cy="32" r="31" fill="#2E7D46"/>
-        <path d="M20 26h24v22a4 4 0 0 1-4 4H24a4 4 0 0 1-4-4V26z" fill="#FCEFC7"/>
-        <rect x="18" y="20" width="28" height="8" rx="3" fill="#1F5A32"/>
-        <rect x="26" y="12" width="12" height="9" rx="2" fill="#1F5A32"/>
-      </svg>
-      <div class="brand-text">
+      <span class="brand-text">
         <strong>Sri Mahalakshmi</strong>
-        <span>Order admin console</span>
-      </div>
-    </div>
+        <span>Pickles &amp; Spices</span>
+      </span>
+    </a>
+
+    <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav class="main-nav" id="mainNav">
+      <a href="#pickles">Pickles</a>
+      <a href="#podi">Podi &amp; Karam</a>
+      <a href="#about">About &amp; FSSAI</a>
+      <a href="#contact">Contact</a>
+    </nav>
+
     <div class="header-actions">
-      <button class="btn btn-outline" id="refreshBtn">↻ Refresh</button>
-      <a class="btn btn-outline" href="/" target="_blank">View site</a>
-      <button class="btn btn-outline" id="logoutBtn">Log out</button>
+      <button class="icon-btn" id="cartOpenBtn" aria-label="Open cart">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 4h2l2.4 12.4a2 2 0 0 0 2 1.6h7.2a2 2 0 0 0 2-1.6L20 8H6" stroke="#2B1B12" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="21" r="1.4" fill="#2B1B12"/><circle cx="17" cy="21" r="1.4" fill="#2B1B12"/></svg>
+        <span class="cart-count" id="cartCount">0</span>
+      </button>
     </div>
-  </header>
+  </div>
+</header>
 
-  <main class="admin-main">
-    <section class="stats-row" id="statsRow"></section>
+<main id="top">
 
-    <div class="admin-tabs">
-      <button class="admin-tab active" data-tab="orders">Orders</button>
-      <button class="admin-tab" data-tab="products">Products</button>
-      <button class="admin-tab" data-tab="settings">Settings</button>
+  <!-- ============== BRAND BANNER ============== -->
+  <div class="brand-banner">
+    <img src="images/hero-banner.png" alt="Sri Mahalakshmi Pickles &amp; Spices — Sri Mahalakshmi Pachallu" loading="eager">
+  </div>
+
+  <!-- ============== HERO ============== -->
+  <section class="hero seed-texture">
+    <div class="wrap">
+      <div class="hero-copy">
+        <span class="hero-eyebrow">🌿 Ammamma's recipe, cold-pressed &amp; sun-cured</span>
+        <h1>Andhra pickles &amp; podi, <em>made like home.</em></h1>
+        <p class="lede">Twenty-eight recipes of pickle, podi and karam — pressed in small batches, packed fresh to order. Choose your weight, add to cart, and order on WhatsApp or straight from the website.</p>
+        <div class="hero-ctas">
+          <a href="#pickles" class="btn btn-primary">Shop pickles</a>
+          <a href="#podi" class="btn btn-outline">Shop podi &amp; karam</a>
+        </div>
+        <div class="hero-badges">
+          <div><strong>28</strong> recipes</div>
+          <div><strong>500g–2kg</strong> pack sizes</div>
+          <div><strong>COD</strong> &amp; UPI available</div>
+        </div>
+      </div>
+      <div class="hero-art">
+        <div class="blob"></div>
+        <svg viewBox="0 0 320 360" aria-hidden="true">
+          <ellipse cx="160" cy="336" rx="110" ry="14" fill="#12314A" opacity=".12"/>
+          <path d="M70 140h180v150a30 30 0 0 1-30 30H100a30 30 0 0 1-30-30V140z" fill="#2AA9C4"/>
+          <path d="M70 140h180v40H70z" fill="#1C86C8"/>
+          <rect x="55" y="118" width="210" height="28" rx="10" fill="#0D5A8F"/>
+          <rect x="120" y="70" width="80" height="52" rx="10" fill="#0D5A8F"/>
+          <rect x="128" y="60" width="64" height="18" rx="9" fill="#57C2E8"/>
+          <g opacity=".9">
+            <circle cx="115" cy="200" r="7" fill="#0D5A8F"/>
+            <circle cx="150" cy="225" r="7" fill="#0D5A8F"/>
+            <circle cx="190" cy="205" r="7" fill="#0D5A8F"/>
+            <circle cx="220" cy="235" r="7" fill="#0D5A8F"/>
+            <circle cx="130" cy="255" r="7" fill="#0D5A8F"/>
+            <circle cx="175" cy="260" r="7" fill="#0D5A8F"/>
+            <circle cx="205" cy="270" r="7" fill="#0D5A8F"/>
+          </g>
+          <path d="M85 150c30 14 140 14 170 0" stroke="#EAF6FD" stroke-width="4" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
     </div>
+  </section>
 
-    <section class="orders-panel" id="ordersPanel">
-      <div class="panel-head">
-        <h2>Orders</h2>
-        <div class="filter-row">
-          <button class="filter-chip active" data-filter="All">All</button>
-          <button class="filter-chip" data-filter="Pending">Pending</button>
-          <button class="filter-chip" data-filter="Confirmed">Confirmed</button>
-          <button class="filter-chip" data-filter="Delivered">Delivered</button>
+  <!-- ============== PICKLES ============== -->
+  <section class="section" id="pickles">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <span class="section-tag tag-pickle">Ooragaya</span>
+          <h2>Our pickles</h2>
+          <p>Vegetable, fruit and meat pickles, pressed in cold oil the traditional way.</p>
+        </div>
+        <div class="veg-filter-row" role="group" aria-label="Filter pickles by veg / non-veg">
+          <button type="button" class="veg-filter-chip active" data-veg-filter="all">All</button>
+          <button type="button" class="veg-filter-chip veg-chip" data-veg-filter="veg"><span class="veg-dot veg"></span> Veg</button>
+          <button type="button" class="veg-filter-chip nonveg-chip" data-veg-filter="nonveg"><span class="veg-dot nonveg"></span> Non-veg</button>
         </div>
       </div>
-      <div id="ordersList" class="orders-list"></div>
-    </section>
+      <div class="product-grid" id="pickleGrid" aria-live="polite"></div>
+    </div>
+  </section>
 
-    <section class="products-panel" id="productsPanel" hidden>
-      <div class="panel-head">
-        <h2>Products</h2>
-        <p class="muted" style="margin:0;">Upload a photo, edit price/description, or add and remove products.</p>
-        <button type="button" class="btn btn-primary btn-sm" id="addProductBtn">+ Add product</button>
-      </div>
-      <div class="filter-row" id="productFilterRow">
-        <button class="product-filter-chip active" data-pfilter="all">All</button>
-        <button class="product-filter-chip" data-pfilter="vegPickle">Veg Pickles</button>
-        <button class="product-filter-chip" data-pfilter="nonvegPickle">Non-Veg Pickles</button>
-        <button class="product-filter-chip" data-pfilter="podi">Podi &amp; Karam</button>
-      </div>
-      <div id="addProductForm" class="add-product-form" hidden>
-        <div class="form-row">
-          <label>Name<input type="text" id="newProdName" placeholder="e.g. Mango Pickle"></label>
-          <label>Category
-            <select id="newProdCategory">
-              <option value="pickle">Pickle</option>
-              <option value="podi">Podi &amp; Karam</option>
-            </select>
-          </label>
-          <label>Veg?
-            <select id="newProdVeg">
-              <option value="true">Veg</option>
-              <option value="false">Non-veg</option>
-            </select>
-          </label>
-          <label>Price / 500g (₹)<input type="number" min="1" step="1" id="newProdPrice"></label>
+  <!-- ============== PODI & KARAM ============== -->
+  <section class="section podi-section" id="podi">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <span class="section-tag tag-podi">Podi &amp; Karam</span>
+          <h2>Podi &amp; karam powders</h2>
+          <p>Roasted spice, lentil and seed podis for rice, dosa and idli.</p>
         </div>
-        <label class="form-row-full">Description<textarea id="newProdDesc" rows="2" placeholder="Short description shown on the website"></textarea></label>
-        <div class="form-actions">
-          <button type="button" class="btn btn-outline btn-sm" id="cancelAddProduct">Cancel</button>
-          <button type="button" class="btn btn-primary btn-sm" id="saveAddProduct">Add product</button>
-        </div>
-        <div class="save-status" id="addProductStatus"></div>
       </div>
-      <div id="productsList" class="products-grid"></div>
-    </section>
+      <div class="product-grid" id="podiGrid" aria-live="polite"></div>
+    </div>
+  </section>
 
-    <section class="settings-panel" id="settingsPanel" hidden>
-      <div class="panel-head">
-        <h2>Settings</h2>
-        <p class="muted" style="margin:0;">Change the admin console password.</p>
+  <!-- ============== ABOUT & FSSAI ============== -->
+  <section class="section about-section" id="about">
+    <div class="wrap about-grid">
+      <div>
+        <span class="section-tag tag-pickle">About us</span>
+        <h2>Made the way ammamma made it</h2>
+        <p class="about-copy">Sri Mahalakshmi Pickles &amp; Spices is a home-grown Andhra pickle and podi kitchen based in Etcherla, Srikakulam. Every jar is pressed in small batches using cold-pressed oil and sun-cured spices, following recipes passed down through the family — no preservatives, no shortcuts.</p>
+        <ul class="about-points">
+          <li>🌿 28 recipes across pickles, podi &amp; karam</li>
+          <li>🧴 Packed fresh to order in 250g–2kg jars</li>
+          <li>🚚 Delivered across Andhra Pradesh &amp; beyond</li>
+        </ul>
       </div>
-      <form id="changePasswordForm" class="settings-form">
-        <label>Current password<input type="password" id="currentPassword" required autocomplete="current-password"></label>
-        <label>New password<input type="password" id="newPassword" required minlength="4" autocomplete="new-password"></label>
-        <label>Confirm new password<input type="password" id="confirmPassword" required minlength="4" autocomplete="new-password"></label>
-        <button type="submit" class="btn btn-primary btn-sm">Update password</button>
-        <div class="save-status" id="passwordStatus"></div>
-      </form>
-    </section>
-  </main>
+      <div class="fssai-card">
+        <div class="fssai-card-head">
+          <span class="fssai-badge-icon" aria-hidden="true">✅</span>
+          <div>
+            <strong>FSSAI Licensed</strong>
+            <span>Food Safety &amp; Standards Authority of India</span>
+          </div>
+        </div>
+        <dl class="fssai-details">
+          <div><dt>Licensee</dt><dd>Sri Mahalaxmi Food Products</dd></div>
+          <div><dt>FSSAI License No.</dt><dd class="fssai-number">10125001000133</dd></div>
+          <div><dt>Category</dt><dd>State License — Manufacturer</dd></div>
+          <div><dt>Address</dt><dd>Plot No-45, Sat Nagar, Thotapalem Village, Etcherla, Srikakulam, Andhra Pradesh – 535005</dd></div>
+          <div><dt>Valid</dt><dd>08 May 2025 – 07 May 2026</dd></div>
+        </dl>
+        <p class="fssai-note">Every product is manufactured and packed under this FSSAI license, which you can verify anytime at <a href="https://foscos.fssai.gov.in" target="_blank" rel="noopener">foscos.fssai.gov.in</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== CONTACT / FOOTER ============== -->
+  <section class="contact-section" id="contact">
+    <div class="wrap">
+      <div class="contact-grid">
+        <div>
+          <a href="#top" class="brand" style="margin-bottom:16px;">
+            <svg viewBox="0 0 64 64" aria-hidden="true">
+              <circle cx="32" cy="32" r="31" fill="#57C2E8"/>
+              <path d="M20 26h24v22a4 4 0 0 1-4 4H24a4 4 0 0 1-4-4V26z" fill="#0D5A8F"/>
+              <rect x="18" y="20" width="28" height="8" rx="3" fill="#12314A"/>
+              <rect x="26" y="12" width="12" height="9" rx="2" fill="#12314A"/>
+            </svg>
+            <span class="brand-text"><strong>Sri Mahalakshmi</strong><span>Pickles &amp; Spices</span></span>
+          </a>
+          <p>Homemade Andhra pickles, podi and karam — pressed fresh, packed to order and delivered to your door.</p>
+        </div>
+
+        <div>
+          <h4>Order &amp; talk to us</h4>
+          <ul class="contact-list">
+            <li><a href="tel:+918790387333">📞 87903 87333</a></li>
+            <li><a href="tel:+916281245345">📞 62812 45345</a></li>
+            <li><a href="#" id="footerWhatsapp">💬 Chat on WhatsApp</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4>We accept</h4>
+          <div class="payment-icons">
+            <span class="pay-chip">UPI</span>
+            <span class="pay-chip">Paytm</span>
+            <span class="pay-chip">PhonePe</span>
+            <span class="pay-chip">Google Pay</span>
+            <span class="pay-chip">Cash on Delivery</span>
+          </div>
+          <div class="pay-chip fssai-chip" style="margin-top:10px;">✅ FSSAI Lic. No. 10125001000133</div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span id="year"></span> Sri Mahalakshmi Pickles &amp; Spices. All rights reserved.</span>
+        <span>Made with ❤️ in Andhra Pradesh</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- WhatsApp floating button -->
+<a href="#" id="whatsappFab" class="whatsapp-fab" aria-label="Chat on WhatsApp" target="_blank" rel="noopener">
+  <svg viewBox="0 0 32 32" fill="#fff"><path d="M16 3C9 3 3 9 3 16c0 2.6.8 5 2.1 7L3 29l6.2-2c1.9 1 4.1 1.6 6.4 1.6 7 0 13-6 13-13S23 3 16 3zm0 23.8c-2 0-4-.6-5.7-1.6l-.4-.2-3.6 1.2 1.2-3.5-.3-.4C6 20.6 5.4 18.3 5.4 16c0-5.9 4.8-10.6 10.6-10.6S26.6 10.1 26.6 16 21.9 26.8 16 26.8zm5.8-7.9c-.3-.2-1.9-.9-2.2-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.3-.7.1-.4-.2-1.5-.6-2.5-1.6-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.7.2-.2.3-.4.5-.6.1-.2.2-.4 0-.7-.1-.3-.7-1.7-1-2.3-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1.1 1-1.1 2.5s1.1 2.9 1.3 3.1c.2.2 2 3.1 5 4.3 2.9 1.2 2.9.8 3.4.7.5 0 1.6-.6 1.8-1.3.2-.6.2-1.2.1-1.3-.1-.1-.3-.2-.6-.4z"/></svg>
+</a>
+
+<!-- ============== CART DRAWER ============== -->
+<div class="cart-overlay" id="cartOverlay"></div>
+<aside class="cart-drawer" id="cartDrawer" aria-label="Shopping cart">
+  <div class="cart-head">
+    <h3>Your cart</h3>
+    <button class="cart-close" id="cartCloseBtn" aria-label="Close cart">&times;</button>
+  </div>
+  <div class="cart-items" id="cartItems"></div>
+  <div class="cart-summary">
+    <div class="cart-total-row">
+      <span>Total</span>
+      <strong id="cartTotal">₹0</strong>
+    </div>
+    <div class="cart-actions">
+      <button class="btn btn-whatsapp btn-block" id="whatsappOrderBtn">
+        <svg width="18" height="18" viewBox="0 0 32 32" fill="#fff"><path d="M16 3C9 3 3 9 3 16c0 2.6.8 5 2.1 7L3 29l6.2-2c1.9 1 4.1 1.6 6.4 1.6 7 0 13-6 13-13S23 3 16 3z"/></svg>
+        Order on WhatsApp
+      </button>
+      <button class="btn btn-primary btn-block" id="websiteOrderBtn">Place order on website</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ============== CHECKOUT MODAL ============== -->
+<div class="modal-overlay" id="checkoutOverlay">
+  <div class="modal" id="checkoutModal">
+    <!-- content injected by JS: form step / success step -->
+  </div>
 </div>
 
-<input type="file" id="imageFileInput" accept="image/png,image/jpeg,image/webp" hidden>
-
-<script src="admin.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>
