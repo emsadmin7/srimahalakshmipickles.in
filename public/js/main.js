@@ -7,7 +7,10 @@ const CONFIG = {
   businessName: 'Sri Mahalakshmi Pickles & Spices',
   phones: ['8790387333', '6281245345'],
   whatsappNumber: '918790387333', // country code + number, no + or spaces
-  upiId: '9492503366@ptsbi', // <-- your real UPI ID (used for every online payment method)
+  upiId: '9492503366@ptsbi', // <-- your real UPI ID
+  paytmNumber: '9492503366',
+  paytmUpiId: '9492503366@ptsbi', // real UPI ID — used to build the "Pay via Paytm" deep link
+  phonepeNumber: '9492503366@ptsbi', // PhonePe UPI ID (same as above, shown to customers)
   phonepeQrImage: 'images/phonepe-qr.jpg', // scan-to-pay QR shown at checkout
   payeeName: 'Manne Sai Praneetha Chowdary',
 };
@@ -26,8 +29,8 @@ function formatINR(n) {
 }
 
 /* ---------- icon generators (no external images needed) ---------- */
-const JAR_COLORS = ['#7A1E17', '#8C2A1E', '#5C1712', '#9A3327', '#6B1F16'];
-const BOWL_COLORS = ['#E0A62B', '#C9941F', '#D9A93C', '#B98A1A', '#EFC15C'];
+const JAR_COLORS = ['#1C86C8', '#2E93D1', '#1769AA', '#2AA9C4', '#3F9FE0'];
+const BOWL_COLORS = ['#57C2E8', '#3FB6D9', '#48B8DE', '#2AA9C4', '#6ED0EE'];
 
 /* Distinct illustrated fillings for specific pickles, drawn inside the jar
    window (roughly x:30-70, y:44-84) instead of the generic dot pattern. */
@@ -195,7 +198,7 @@ function podiStyleFor(name) {
     case 'Nuvvula Podi':
       return { base: '#D8CBA6', speckle: '#2E2620' };
     default:
-      return { base: '#FCEFC7', speckle: '#7A1E17' };
+      return { base: '#EAF6FD', speckle: '#FDF6E3' };
   }
 }
 
@@ -242,7 +245,6 @@ let PRODUCTS = [];
 let CART = JSON.parse(localStorage.getItem('smp_cart') || '{}');
 let CHECKOUT_CHANNEL = null; // 'whatsapp' | 'website'
 let SELECTED_PAYMENT = 'COD';
-let CATEGORY_FILTER = 'all'; // 'all' | 'vegPickle' | 'nonvegPickle' | 'podi'
 
 function saveCart() {
   localStorage.setItem('smp_cart', JSON.stringify(CART));
@@ -264,9 +266,7 @@ async function loadProducts() {
 
 function renderGrid(category, containerId) {
   const container = document.getElementById(containerId);
-  let items = PRODUCTS.filter((p) => p.category === category);
-  if (category === 'pickle' && CATEGORY_FILTER === 'vegPickle') items = items.filter((p) => p.veg !== false);
-  if (category === 'pickle' && CATEGORY_FILTER === 'nonvegPickle') items = items.filter((p) => p.veg === false);
+  const items = PRODUCTS.filter((p) => p.category === category);
   container.innerHTML = items.map((p, i) => cardTemplate(p, i)).join('');
 
   items.forEach((p) => {
@@ -322,7 +322,7 @@ function cardTemplate(p, i) {
     : iconFor(p, i);
   return `
   <div class="card" data-card="${p.id}">
-    <div class="card-media" style="background:${p.category === 'podi' ? '#FCEFC7' : '#E7F2DD'}">
+    <div class="card-media" style="background:${p.category === 'podi' ? '#EAF6FD' : '#D3EEFB'}">
       <span class="veg-dot ${vegClass}" title="${p.veg === false ? 'Non-vegetarian' : 'Vegetarian'}"></span>
       ${media}
     </div>
@@ -413,7 +413,7 @@ function renderCart() {
       const idx = PRODUCTS.findIndex((p) => p.id === l.id);
       return `
       <div class="cart-item">
-        <div class="mini-media" style="background:${l.category === 'podi' ? '#FCEFC7' : '#E7F2DD'}">
+        <div class="mini-media" style="background:${l.category === 'podi' ? '#EAF6FD' : '#D3EEFB'}">
           ${iconFor({ category: l.category, veg: l.veg }, idx >= 0 ? idx : i)}
         </div>
         <div>
@@ -511,6 +511,11 @@ function renderCheckoutForm() {
           ${paymentOptionHTML('PhonePe', 'PhonePe')}
         </div>
         <div class="upi-note" id="paymentNote"></div>
+        <div class="txn-box" id="txnBox" hidden>
+          <label for="txnRef">Transaction reference number *</label>
+          <input type="text" id="txnRef" maxlength="30" autocomplete="off" placeholder="e.g. 412345678901">
+          <div class="txn-help">After paying, copy the <strong>UPI Ref / UTR / Transaction ID</strong> from your payment app and enter it here.</div>
+        </div>
       </div>` : `
       <div class="upi-note">You'll confirm the order and payment details directly with us on WhatsApp after sending your list.</div>`}
 
@@ -555,6 +560,7 @@ function paymentOptionHTML(value, label) {
 function updatePaymentNote() {
   const note = document.getElementById('paymentNote');
   if (!note) return;
+  const total = formatINR(cartTotal());
   const qr = `<div class="qr-pay-box">
       <img src="${CONFIG.phonepeQrImage}" alt="Scan to pay QR code" class="qr-pay-img">
       <div class="qr-pay-text">
@@ -563,30 +569,44 @@ function updatePaymentNote() {
         <div class="qr-pay-name">${CONFIG.payeeName}</div>
       </div>
     </div>`;
+  const online = SELECTED_PAYMENT !== 'COD';
+  const txnBox = document.getElementById('txnBox');
+  const txnInput = document.getElementById('txnRef');
+  if (txnBox) txnBox.hidden = !online;
+  if (txnInput) txnInput.required = online;
+
   if (SELECTED_PAYMENT === 'COD') {
     note.innerHTML = `<strong>Cash on delivery.</strong> Pay in cash when your order arrives.`;
   } else if (SELECTED_PAYMENT === 'UPI') {
-    note.innerHTML = `<strong>Pay by UPI</strong> to <strong>${CONFIG.upiId}</strong>. After you confirm the order you'll get a "Pay now" button that opens your UPI app, plus the QR code below to scan.${qr}`;
+    note.innerHTML = `<strong>Step 1:</strong> Pay <strong>${total}</strong> by UPI to <strong>${CONFIG.upiId}</strong>.<br><strong>Step 2:</strong> Enter the transaction reference number below and confirm.${qr}`;
   } else if (SELECTED_PAYMENT === 'Paytm') {
-    note.innerHTML = `<strong>Pay via Paytm</strong> to <strong>${CONFIG.upiId}</strong>. After you confirm the order you'll get a "Pay now" button, plus the QR code below to scan.${qr}`;
+    note.innerHTML = `<strong>Step 1:</strong> Pay <strong>${total}</strong> via Paytm.<br>
+      <button type="button" class="btn btn-primary btn-block" id="paytmPayBtn" style="margin:8px 0;background:#00B9F1;border-color:#00B9F1;">Open Paytm to pay ${total}</button>
+      <span id="paytmFallbackNote"></span>
+      <strong>Step 2:</strong> Enter the transaction reference number below and confirm.`;
+    document.getElementById('paytmPayBtn').addEventListener('click', () => {
+      const { paytmApp, genericUpi } = paytmDeepLink({ total: cartTotal(), orderId: 'Website order' });
+      const fb = document.getElementById('paytmFallbackNote');
+      window.location.href = paytmApp;
+      setTimeout(() => {
+        fb.innerHTML = `Paytm app didn't open? <a href="${genericUpi}">Tap here to pay with any UPI app</a>, or pay to <strong>${CONFIG.paytmUpiId}</strong> manually.<br>`;
+      }, 1500);
+    });
   } else if (SELECTED_PAYMENT === 'PhonePe') {
-    note.innerHTML = `<strong>Pay via PhonePe</strong> to <strong>${CONFIG.upiId}</strong>. After you confirm the order you'll get a "Pay now" button, plus the QR code below to scan.${qr}`;
+    note.innerHTML = `<strong>Step 1:</strong> Pay <strong>${total}</strong> via PhonePe to <strong>${CONFIG.phonepeNumber}</strong>.<br><strong>Step 2:</strong> Enter the transaction reference number below and confirm.${qr}`;
   }
 }
 
-/* Builds a standard NPCI UPI "collect" deep link (upi://pay?...). This is
-   the universal link format every UPI app (GPay, PhonePe, Paytm, BHIM, etc.)
-   understands, so it's far more reliable than any single app's own custom
-   scheme (e.g. Paytm's paytmmp:// links are frequently blocked by the OS or
-   the app itself when opened from a browser). Tapping it on a phone with a
-   UPI app installed shows the app's own "choose app to pay with" sheet (or
-   opens the customer's default UPI app directly) with the amount already
-   filled in — it is not a certified Payment Gateway, so there's no live
-   confirmation back to this site; the order is still confirmed manually via
-   the WhatsApp screenshot, same as the QR flow. */
-function genericUpiLink(amount, note) {
-  const params = `pa=${encodeURIComponent(CONFIG.upiId)}&pn=${encodeURIComponent(CONFIG.payeeName || CONFIG.businessName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
-  return `upi://pay?${params}`;
+/* Builds a UPI deep link that opens directly in the Paytm app with the
+   amount pre-filled. This is a standard UPI "collect" intent link, not
+   Paytm's certified merchant Payment Gateway (that needs a Paytm Business
+   account with API credentials) — but it takes the customer straight into
+   Paytm to pay, with nothing to type. */
+function paytmDeepLink(order) {
+  const amount = order.total.toFixed(2);
+  const note = `Order ${order.orderId}`;
+  const params = `pa=${encodeURIComponent(CONFIG.paytmUpiId)}&pn=${encodeURIComponent(CONFIG.businessName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
+  return { paytmApp: `paytmmp://pay?${params}`, genericUpi: `upi://pay?${params}` };
 }
 
 async function handleCheckoutSubmit(e) {
@@ -611,7 +631,14 @@ async function handleCheckoutSubmit(e) {
   }
 
   // website order
-  const result = await submitOrder(customer, lines, SELECTED_PAYMENT, notes, { silent: false });
+  const txnEl = document.getElementById('txnRef');
+  const txnRef = SELECTED_PAYMENT !== 'COD' && txnEl ? txnEl.value.trim() : '';
+  if (SELECTED_PAYMENT !== 'COD' && !/^[A-Za-z0-9 ]{8,35}$/.test(txnRef)) {
+    showCheckoutError('Please enter the transaction reference number from your payment app (8-30 letters/digits).');
+    if (txnEl) txnEl.focus();
+    return;
+  }
+  const result = await submitOrder(customer, lines, SELECTED_PAYMENT, notes, { silent: false }, txnRef);
   if (result && result.ok) {
     renderSuccessScreen(result.order);
     CART = {};
@@ -646,12 +673,13 @@ function buildWhatsAppMessage(customer, lines, notes) {
   return msg;
 }
 
-async function submitOrder(customer, lines, paymentMethod, notes, opts) {
+async function submitOrder(customer, lines, paymentMethod, notes, opts, txnRef) {
   const payload = {
     customer,
     items: lines.map((l) => ({ id: l.id, weight: l.weight, qty: l.qty })),
     paymentMethod,
     notes,
+    txnRef: txnRef || '',
   };
   try {
     const res = await fetch('/api/orders', {
@@ -673,8 +701,6 @@ async function submitOrder(customer, lines, paymentMethod, notes, opts) {
 
 function renderSuccessScreen(order) {
   const modal = document.getElementById('checkoutModal');
-  const onlineMethods = { UPI: 'UPI app', Paytm: 'Paytm', PhonePe: 'PhonePe' };
-  const isOnlinePayment = Object.prototype.hasOwnProperty.call(onlineMethods, order.paymentMethod);
   modal.innerHTML = `
     <div class="order-success">
       <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#4B6642"/><path d="M30 52l14 14 26-30" stroke="#fff" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -682,23 +708,7 @@ function renderSuccessScreen(order) {
       <p>We've received your order and will confirm it shortly on call or WhatsApp.</p>
       <div class="order-id">${order.orderId}</div>
       <p style="font-size:.85rem;color:var(--ink-soft);">Payment method: <strong>${order.paymentMethod}</strong> · Total: <strong>${formatINR(order.total)}</strong></p>
-      ${isOnlinePayment ? `
-      <button type="button" class="btn btn-primary btn-block" id="upiPayBtn" style="margin-top:14px;">
-        Pay ${formatINR(order.total)} now via ${onlineMethods[order.paymentMethod]}
-      </button>
-      <div class="qr-pay-box" style="margin-top:10px;">
-        <img src="${CONFIG.phonepeQrImage}" alt="Scan to pay QR code" class="qr-pay-img">
-        <div class="qr-pay-text">
-          <div>Or scan with any UPI app</div>
-          <div class="qr-pay-id">${CONFIG.upiId}</div>
-          <div class="qr-pay-name">${CONFIG.payeeName}</div>
-        </div>
-      </div>
-      <button type="button" class="btn btn-outline btn-block" id="copyUpiBtn" style="margin-top:10px;">
-        📋 Copy UPI ID (${CONFIG.upiId})
-      </button>
-      <p class="upi-note" id="copyUpiStatus" style="margin-top:8px;">After paying, please send us a screenshot on WhatsApp so we can confirm your order.</p>
-      ` : ''}
+      ${order.txnRef ? `<p style="font-size:.85rem;color:var(--ink-soft);">Transaction ref: <strong>${order.txnRef}</strong><br>We'll verify your payment and confirm shortly.</p>` : ''}
       <button class="btn btn-primary btn-block" id="successCloseBtn" style="margin-top:16px;">Done</button>
     </div>
   `;
@@ -707,28 +717,6 @@ function renderSuccessScreen(order) {
     closeCart();
   });
 
-  if (isOnlinePayment) {
-    document.getElementById('upiPayBtn').addEventListener('click', () => {
-      const amount = order.total.toFixed(2);
-      const link = genericUpiLink(amount, `Order ${order.orderId}`);
-      // Standard upi://pay intent — works with GPay, PhonePe, Paytm, BHIM
-      // and any other NPCI-compliant UPI app installed on the phone. On a
-      // desktop browser (no UPI app to catch the link) nothing will open,
-      // which is expected — the "Copy UPI ID" button and QR code above are
-      // the fallback for that case.
-      window.location.href = link;
-    });
-
-    document.getElementById('copyUpiBtn').addEventListener('click', async () => {
-      const statusEl = document.getElementById('copyUpiStatus');
-      try {
-        await navigator.clipboard.writeText(CONFIG.upiId);
-        statusEl.textContent = 'UPI ID copied! Paste it in your UPI app to pay, then send us a screenshot on WhatsApp.';
-      } catch {
-        statusEl.textContent = `Please copy manually: ${CONFIG.upiId}`;
-      }
-    });
-  }
 }
 
 function clearCartAndClose() {
@@ -740,38 +728,6 @@ function clearCartAndClose() {
 }
 
 /* ---------- wire up static UI ---------- */
-function applyCategoryFilter(cat) {
-  CATEGORY_FILTER = cat;
-  const picklesSection = document.getElementById('pickles');
-  const podiSection = document.getElementById('podi');
-  const allBtn = document.getElementById('categoryAllBtn');
-
-  document.querySelectorAll('.category-card[data-cat]').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.cat === cat);
-  });
-
-  if (cat === 'all') {
-    picklesSection.hidden = false;
-    podiSection.hidden = false;
-    allBtn.hidden = true;
-  } else if (cat === 'podi') {
-    picklesSection.hidden = true;
-    podiSection.hidden = false;
-    allBtn.hidden = false;
-  } else {
-    // vegPickle / nonvegPickle
-    picklesSection.hidden = false;
-    podiSection.hidden = true;
-    allBtn.hidden = false;
-  }
-
-  renderGrid('pickle', 'pickleGrid');
-  renderGrid('podi', 'podiGrid');
-
-  const target = cat === 'podi' ? podiSection : (cat === 'all' ? document.getElementById('pickles') : picklesSection);
-  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -798,13 +754,6 @@ document.addEventListener('DOMContentLoaded', () => {
     navToggle.setAttribute('aria-expanded', isOpen);
   });
   mainNav.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => mainNav.classList.remove('open')));
-
-  document.querySelectorAll('#categoryCards .category-card').forEach((btn) => {
-    btn.addEventListener('click', () => applyCategoryFilter(btn.dataset.cat));
-  });
-  document.querySelectorAll('a[href="#pickles"], a[href="#podi"]').forEach((a) => {
-    a.addEventListener('click', () => applyCategoryFilter('all'));
-  });
 
   loadProducts();
 });

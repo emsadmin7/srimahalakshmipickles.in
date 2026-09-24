@@ -5,7 +5,6 @@ let ORDERS = [];
 let PRODUCTS = [];
 let ACTIVE_FILTER = 'All';
 let ACTIVE_TAB = 'orders';
-let ADMIN_PRODUCT_FILTER = 'all'; // 'all' | 'vegPickle' | 'nonvegPickle' | 'podi'
 let PENDING_IMAGE_FILE = null; // File chosen but not yet uploaded, keyed by product id
 let PENDING_IMAGE_PRODUCT_ID = null;
 
@@ -19,6 +18,9 @@ function clearPassword() {
   sessionStorage.removeItem('smp_admin_pw');
 }
 
+function esc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 function formatINR(n) {
   return '₹' + Number(n || 0).toLocaleString('en-IN');
 }
@@ -74,11 +76,12 @@ async function fetchProducts() {
 }
 
 async function updateStatus(orderId, status) {
-  await fetch(`/api/admin/orders/${orderId}`, {
+  const res = await fetch(`/api/admin/orders/${orderId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', 'x-admin-password': getPassword() },
     body: JSON.stringify({ status }),
   });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to update status');
 }
 
 async function updateProductPrice(id, price500) {
@@ -221,43 +224,53 @@ function renderOrders() {
     return;
   }
 
-  list.innerHTML = filtered.map((o) => `
-    <div class="order-card" data-order="${o.orderId}">
-      <div class="order-top" data-toggle="${o.orderId}">
+  list.innerHTML = filtered.map((o) => {
+    const c = o.customer || {};
+    const online = o.paymentMethod && !['COD', 'WhatsApp'].includes(o.paymentMethod);
+    const payBlock = online
+      ? (o.txnRef
+          ? `<p>${esc(o.paymentMethod)} <span class="pay-badge paid">Paid</span></p>
+             <p style="margin-top:6px;">Txn ref: <span class="pay-ref">${esc(o.txnRef)}</span></p>
+             ${o.duplicateTxn ? '<p class="pay-warn">⚠ This reference number was already used on another order.</p>' : ''}`
+          : `<p>${esc(o.paymentMethod)}</p><p class="pay-warn">No transaction reference given.</p>`)
+      : `<p>${esc(o.paymentMethod)} ${o.paymentMethod === 'COD' ? '<span class="pay-badge cod">Collect on delivery</span>' : ''}</p>`;
+    return `
+    <div class="order-card" data-order="${esc(o.orderId)}">
+      <div class="order-top" data-toggle="${esc(o.orderId)}">
         <div>
-          <div class="order-id">${o.orderId}</div>
-          <div class="order-meta">${o.customer.name} · ${o.customer.phone} · ${formatDate(o.placedAt)}</div>
+          <div class="order-id">${esc(o.orderId)}</div>
+          <div class="order-meta">${esc(c.name)} · ${esc(c.phone)} · ${esc(formatDate(o.placedAt))}</div>
         </div>
         <div style="text-align:right;">
           <div class="order-total">${formatINR(o.total)}</div>
-          <span class="status-badge status-${o.status}">${o.status}</span>
+          <span class="status-badge status-${esc(o.status)}">${esc(o.status)}</span>
         </div>
       </div>
-      <div class="order-details" id="details-${o.orderId}">
+      <div class="order-details" id="details-${esc(o.orderId)}">
         <div class="detail-grid">
           <div>
             <h4>Delivery address</h4>
-            <p>${o.customer.houseNo}, ${o.customer.area}</p>
-            <p>Pincode: ${o.customer.pincode}</p>
+            <p>${esc(c.houseNo)}, ${esc(c.area)}</p>
+            <p>Pincode: ${esc(c.pincode)}</p>
           </div>
           <div>
             <h4>Payment</h4>
-            <p>${o.paymentMethod}</p>
-            ${o.notes ? `<h4 style="margin-top:10px;">Notes</h4><p>${o.notes}</p>` : ''}
+            ${payBlock}
+            ${o.notes ? `<h4 style="margin-top:10px;">Notes</h4><p>${esc(o.notes)}</p>` : ''}
           </div>
         </div>
         <table class="items-table">
           <thead><tr><th>Item</th><th>Weight</th><th>Qty</th><th>Amount</th></tr></thead>
           <tbody>
-            ${o.items.map((it) => `<tr><td>${it.name}</td><td>${it.weight}</td><td>${it.qty}</td><td>${formatINR(it.lineTotal)}</td></tr>`).join('')}
+            ${(o.items || []).map((it) => `<tr><td>${esc(it.name)}</td><td>${esc(it.weight)}</td><td>${esc(it.qty)}</td><td>${formatINR(it.lineTotal)}</td></tr>`).join('')}
           </tbody>
         </table>
         <div class="status-actions">
-          ${STATUSES.map((s) => `<button data-status="${s}" data-order-id="${o.orderId}" class="${s === o.status ? 'current' : ''}">${s}</button>`).join('')}
+          ${STATUSES.map((s) => `<button data-status="${s}" data-order-id="${esc(o.orderId)}" class="${s === o.status ? 'current' : ''}">${s}</button>`).join('')}
         </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 
   list.querySelectorAll('[data-toggle]').forEach((el) => {
     el.addEventListener('click', () => {
@@ -267,7 +280,11 @@ function renderOrders() {
   list.querySelectorAll('[data-status]').forEach((btn) => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      await updateStatus(btn.dataset.orderId, btn.dataset.status);
+      try {
+        await updateStatus(btn.dataset.orderId, btn.dataset.status);
+      } catch (err) {
+        alert(err.message);
+      }
       refresh();
     });
   });
@@ -275,26 +292,20 @@ function renderOrders() {
 
 function renderProducts() {
   const list = document.getElementById('productsList');
-  let items = PRODUCTS;
-  if (ADMIN_PRODUCT_FILTER === 'vegPickle') items = items.filter((p) => p.category === 'pickle' && p.veg !== false);
-  if (ADMIN_PRODUCT_FILTER === 'nonvegPickle') items = items.filter((p) => p.category === 'pickle' && p.veg === false);
-  if (ADMIN_PRODUCT_FILTER === 'podi') items = items.filter((p) => p.category === 'podi');
-
-  if (items.length === 0) {
-    list.innerHTML = `<div class="empty-state">No products in this category.</div>`;
+  if (PRODUCTS.length === 0) {
+    list.innerHTML = `<div class="empty-state">No products found.</div>`;
     return;
   }
 
-  list.innerHTML = items.map((p) => `
+  list.innerHTML = PRODUCTS.map((p) => `
     <div class="product-card" data-product="${p.id}">
       <div class="product-photo" data-photo="${p.id}">
-        ${p.image ? `<img src="/${p.image}" alt="${p.name}">` : `<span class="product-photo-placeholder">${p.category === 'podi' ? '🥣' : '🫙'}</span>`}
+        ${p.image ? `<img src="/${esc(p.image)}" alt="${esc(p.name)}">` : `<span class="product-photo-placeholder">${p.category === 'podi' ? '🥣' : '🫙'}</span>`}
       </div>
       <div class="product-body">
         <div class="product-name-row">
-          <strong>${p.name}</strong>
-          <span class="category-chip">${p.category}</span>
-          ${p.category === 'pickle' ? `<span class="veg-dot ${p.veg === false ? 'nonveg' : 'veg'}" title="${p.veg === false ? 'Non-veg' : 'Veg'}"></span>` : ''}
+          <strong>${esc(p.name)}</strong>
+          <span class="category-chip">${esc(p.category)}</span>
         </div>
         <div class="product-photo-actions">
           <button type="button" class="btn btn-outline btn-sm" data-choose-photo="${p.id}">Upload photo</button>
@@ -312,7 +323,7 @@ function renderProducts() {
           250g: ${formatINR(priceForWeight(p.price500, '250g'))} · 1kg: ${formatINR(priceForWeight(p.price500, '1kg'))} · 2kg: ${formatINR(priceForWeight(p.price500, '2kg'))}
         </div>
         <label class="desc-label">Description
-          <textarea rows="2" class="desc-input" data-desc-input="${p.id}">${p.desc || ''}</textarea>
+          <textarea rows="2" class="desc-input" data-desc-input="${p.id}">${esc(p.desc || '')}</textarea>
         </label>
         <div class="product-footer-actions">
           <button type="button" class="btn btn-outline btn-sm" data-save-desc="${p.id}">Save description</button>
@@ -460,15 +471,6 @@ document.addEventListener('DOMContentLoaded', () => {
       chip.classList.add('active');
       ACTIVE_FILTER = chip.dataset.filter;
       renderOrders();
-    });
-  });
-
-  document.querySelectorAll('.product-filter-chip').forEach((chip) => {
-    chip.addEventListener('click', () => {
-      document.querySelectorAll('.product-filter-chip').forEach((c) => c.classList.remove('active'));
-      chip.classList.add('active');
-      ADMIN_PRODUCT_FILTER = chip.dataset.pfilter;
-      renderProducts();
     });
   });
 
