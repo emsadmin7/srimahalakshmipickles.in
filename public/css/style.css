@@ -163,14 +163,14 @@ nav.main-nav a:focus-visible::after{ transform:scaleX(1); }
 .hero-banner-section{
   line-height:0;
   background:#0F3319;
-  display:flex;
+ 
   justify-content:center;
 }
 .hero-banner-full{
   width:100%;
   max-width:1700px;
   height:auto;
-  max-height:40vh;
+  max-height:50vh;
   object-fit:contain;
   display:block;
 }
