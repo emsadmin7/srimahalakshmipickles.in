@@ -168,9 +168,9 @@ nav.main-nav a:focus-visible::after{ transform:scaleX(1); }
 }
 .hero-banner-full{
   width:100%;
-  max-width:520px;
+  max-width:1700px;
   height:auto;
-  max-height:80vh;
+  max-height:40vh;
   object-fit:contain;
   display:block;
 }
