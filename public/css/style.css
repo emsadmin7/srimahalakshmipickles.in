@@ -168,10 +168,10 @@ nav.main-nav a:focus-visible::after{ transform:scaleX(1); }
 }
 .hero-banner-full{
   width:100%;
-  max-width:1700px;
+  max-width:2000px;
   height:auto;
   max-height:50vh;
-  object-fit:contain;
+ 
   display:block;
 }
 
