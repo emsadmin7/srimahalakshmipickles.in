@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Console — Sri Mahalakshmi Pickles &amp; Spices</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Yatra+One&family=Mukta:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<!-- ============== LOGIN ============== -->
+<div id="loginScreen" class="login-screen">
+  <form id="loginForm" class="login-card">
+    <div class="brand-mark">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="31" fill="#2E7D46"/>
+        <path d="M20 26h24v22a4 4 0 0 1-4 4H24a4 4 0 0 1-4-4V26z" fill="#FCEFC7"/>
+        <rect x="18" y="20" width="28" height="8" rx="3" fill="#1F5A32"/>
+        <rect x="26" y="12" width="12" height="9" rx="2" fill="#1F5A32"/>
+      </svg>
+    </div>
+    <h1>Admin console</h1>
+    <p class="muted">Sri Mahalakshmi Pickles &amp; Spices</p>
+    <div class="field">
+      <label for="adminPassword">Password</label>
+      <input type="password" id="adminPassword" placeholder="Enter admin password" required autofocus>
+    </div>
+    <p id="loginError" class="login-error"></p>
+    <button type="submit" class="btn btn-primary btn-block">Log in</button>
+  </form>
+</div>
+
+<!-- ============== DASHBOARD ============== -->
+<div id="dashboard" class="dashboard" hidden>
+  <header class="admin-header">
+    <div class="brand">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="31" fill="#2E7D46"/>
+        <path d="M20 26h24v22a4 4 0 0 1-4 4H24a4 4 0 0 1-4-4V26z" fill="#FCEFC7"/>
+        <rect x="18" y="20" width="28" height="8" rx="3" fill="#1F5A32"/>
+        <rect x="26" y="12" width="12" height="9" rx="2" fill="#1F5A32"/>
+      </svg>
+      <div class="brand-text">
+        <strong>Sri Mahalakshmi</strong>
+        <span>Order admin console</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline" id="refreshBtn">↻ Refresh</button>
+      <a class="btn btn-outline" href="/" target="_blank">View site</a>
+      <button class="btn btn-outline" id="logoutBtn">Log out</button>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <section class="stats-row" id="statsRow"></section>
+
+    <div class="admin-tabs">
+      <button class="admin-tab active" data-tab="orders">Orders</button>
+      <button class="admin-tab" data-tab="products">Products</button>
+      <button class="admin-tab" data-tab="settings">Settings</button>
+    </div>
+
+    <section class="orders-panel" id="ordersPanel">
+      <div class="panel-head">
+        <h2>Orders</h2>
+        <div class="filter-row">
+          <button class="filter-chip active" data-filter="All">All</button>
+          <button class="filter-chip" data-filter="Pending">Pending</button>
+          <button class="filter-chip" data-filter="Confirmed">Confirmed</button>
+          <button class="filter-chip" data-filter="Delivered">Delivered</button>
+        </div>
+      </div>
+      <div id="ordersList" class="orders-list"></div>
+    </section>
+
+    <section class="products-panel" id="productsPanel" hidden>
+      <div class="panel-head">
+        <h2>Products</h2>
+        <p class="muted" style="margin:0;">Upload a photo, edit price/description, or add and remove products.</p>
+        <button type="button" class="btn btn-primary btn-sm" id="addProductBtn">+ Add product</button>
+      </div>
+      <div class="filter-row" id="productFilterRow">
+        <button class="product-filter-chip active" data-pfilter="all">All</button>
+        <button class="product-filter-chip" data-pfilter="vegPickle">Veg Pickles</button>
+        <button class="product-filter-chip" data-pfilter="nonvegPickle">Non-Veg Pickles</button>
+        <button class="product-filter-chip" data-pfilter="podi">Podi &amp; Karam</button>
+      </div>
+      <div id="addProductForm" class="add-product-form" hidden>
+        <div class="form-row">
+          <label>Name<input type="text" id="newProdName" placeholder="e.g. Mango Pickle"></label>
+          <label>Category
+            <select id="newProdCategory">
+              <option value="pickle">Pickle</option>
+              <option value="podi">Podi &amp; Karam</option>
+            </select>
+          </label>
+          <label>Veg?
+            <select id="newProdVeg">
+              <option value="true">Veg</option>
+              <option value="false">Non-veg</option>
+            </select>
+          </label>
+          <label>Price / 500g (₹)<input type="number" min="1" step="1" id="newProdPrice"></label>
+        </div>
+        <label class="form-row-full">Description<textarea id="newProdDesc" rows="2" placeholder="Short description shown on the website"></textarea></label>
+        <div class="form-actions">
+          <button type="button" class="btn btn-outline btn-sm" id="cancelAddProduct">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" id="saveAddProduct">Add product</button>
+        </div>
+        <div class="save-status" id="addProductStatus"></div>
+      </div>
+      <div id="productsList" class="products-grid"></div>
+    </section>
+
+    <section class="settings-panel" id="settingsPanel" hidden>
+      <div class="panel-head">
+        <h2>Settings</h2>
+        <p class="muted" style="margin:0;">Change the admin console password.</p>
+      </div>
+      <form id="changePasswordForm" class="settings-form">
+        <label>Current password<input type="password" id="currentPassword" required autocomplete="current-password"></label>
+        <label>New password<input type="password" id="newPassword" required minlength="4" autocomplete="new-password"></label>
+        <label>Confirm new password<input type="password" id="confirmPassword" required minlength="4" autocomplete="new-password"></label>
+        <button type="submit" class="btn btn-primary btn-sm">Update password</button>
+        <div class="save-status" id="passwordStatus"></div>
+      </form>
+    </section>
+  </main>
+</div>
+
+<input type="file" id="imageFileInput" accept="image/png,image/jpeg,image/webp" hidden>
+
+<script src="admin.js"></script>
+</body>
+</html>
