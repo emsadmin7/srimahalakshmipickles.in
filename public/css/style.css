@@ -164,7 +164,7 @@ nav.main-nav a:focus-visible::after{ transform:scaleX(1); }
   line-height:0;
   background:#0F3319;
  
-  justify-content:center;
+  
 }
 .hero-banner-full{
   width:100%;
