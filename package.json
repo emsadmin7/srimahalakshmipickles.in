@@ -1,0 +1,17 @@
+{
+  "name": "sri-mahalakshmi-pickles",
+  "version": "1.0.0",
+  "description": "Sri Mahalakshmi Pickles & Spices - online ordering website with admin console",
+  "main": "server/server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node server/server.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

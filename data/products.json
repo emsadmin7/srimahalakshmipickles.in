@@ -1,0 +1,226 @@
+[
+  {
+    "id": 1,
+    "name": "Amla Pickle",
+    "category": "pickle",
+    "veg": true,
+    "price500": 170,
+    "desc": "Tangy Indian gooseberry, sun-cured in cold-pressed oil."
+  },
+  {
+    "id": 2,
+    "name": "Avise Ginjala Karam Podi",
+    "category": "podi",
+    "veg": true,
+    "price500": 150,
+    "desc": "Roasted flaxseed chutney powder with garlic and red chilli."
+  },
+  {
+    "id": 3,
+    "name": "Chicken Pickle",
+    "category": "pickle",
+    "veg": false,
+    "price500": 340,
+    "desc": "Slow-cooked chicken in a fiery Andhra pickle masala."
+  },
+  {
+    "id": 4,
+    "name": "Karam Podi",
+    "category": "podi",
+    "veg": true,
+    "price500": 140,
+    "desc": "The everyday chilli-lentil powder for rice and dosa."
+  },
+  {
+    "id": 5,
+    "name": "Coconut Powder",
+    "category": "podi",
+    "veg": true,
+    "price500": 130,
+    "desc": "Roasted coconut podi with a mild, nutty warmth."
+  },
+  {
+    "id": 6,
+    "name": "Coriander Pickle",
+    "category": "pickle",
+    "veg": true,
+    "price500": 160,
+    "desc": "Fresh coriander leaves pickled with green chilli and lime."
+  },
+  {
+    "id": 7,
+    "name": "Kandi Podi",
+    "category": "podi",
+    "veg": true,
+    "price500": 150,
+    "desc": "Toor dal podi, nutty and slow-roasted till golden."
+  },
+  {
+    "id": 8,
+    "name": "Cucumber Pickle",
+    "category": "pickle",
+    "veg": true,
+    "price500": 150,
+    "desc": "Crisp cucumber pickled in mustard and red chilli oil."
+  },
+  {
+    "id": 9,
+    "name": "Karivepaku Podi",
+    "category": "podi",
+    "veg": true,
+    "price500": 140,
+    "desc": "Curry leaf podi, earthy and aromatic."
+  },
+  {
+    "id": 10,
+    "name": "Drumstick Pickle",
+    "category": "pickle",
+    "veg": true,
+    "price500": 170,
+    "desc": "Drumstick pieces pickled in a tangy tamarind base."
+  },
+  {
+    "id": 11,
+    "name": "Eggplant Pickle",
+    "category": "pickle",
+    "veg": true,
+    "price500": 160,
+    "desc": "Brinjal simmered with roasted spices and jaggery."
+  },
+  {
+    "id": 12,
+    "name": "Kottimira Podi",
+    "category": "podi",
+    "veg": true,
+    "price500": 140,
+    "desc": "Coriander seed podi with a bright, citrusy edge."
+  },
+  {
+    "id": 13,
+    "name": "Garlic Pickle",
+    "category": "pickle",
+    "veg": true,
+    "price500": 190,
+    "desc": "Whole garlic cloves slow-pickled till deeply mellow."
+  },
+  {
+    "id": 14,
+    "name": "Ginger Pickle",
+    "category": "pickle",
+    "veg": true,
+    "price500": 180,
+    "desc": "Fresh ginger pickled with jaggery, chilli and lime."
+  },
+  {
+    "id": 15,
+    "name": "Green Chilli Pickle",
+    "category": "pickle",
+    "veg": true,
+    "price500": 150,
+    "desc": "Whole green chillies in mustard-tempered oil, sharp and hot."
+  },
+  {
+    "id": 16,
+    "name": "Verusenga Podi",
+    "category": "podi",
+    "veg": true,
+    "price500": 160,
+    "desc": "Roasted groundnut podi, rich and comforting."
+  },
+  {
+    "id": 17,
+    "name": "Munaaguku Karam",
+    "category": "podi",
+    "veg": true,
+    "price500": 150,
+    "desc": "Drumstick leaf karam, packed with iron and flavour."
+  },
+  {
+    "id": 18,
+    "name": "Lemon Pickle",
+    "category": "pickle",
+    "veg": true,
+    "price500": 150,
+    "desc": "Classic sun-ripened lemon pickle, sharp and salty."
+  },
+  {
+    "id": 19,
+    "name": "Mutton Pickle",
+    "category": "pickle",
+    "veg": false,
+    "price500": 380,
+    "desc": "Tender mutton simmered in a bold, spice-heavy pickle masala."
+  },
+  {
+    "id": 20,
+    "name": "Onion Pickle",
+    "category": "pickle",
+    "veg": true,
+    "price500": 150,
+    "desc": "Shallots pickled whole in a tangy tamarind masala."
+  },
+  {
+    "id": 21,
+    "name": "Pepper Pickle",
+    "category": "pickle",
+    "veg": true,
+    "price500": 200,
+    "desc": "Crushed black pepper pickle, sharp and warming."
+  },
+  {
+    "id": 22,
+    "name": "Prawn Pickle",
+    "category": "pickle",
+    "veg": false,
+    "price500": 360,
+    "desc": "Coastal Andhra-style prawns in a deep red pickle masala."
+  },
+  {
+    "id": 23,
+    "name": "Red Chilli Pickle",
+    "category": "pickle",
+    "veg": true,
+    "price500": 170,
+    "desc": "Byadgi red chillies pickled for maximum colour and punch."
+  },
+  {
+    "id": 24,
+    "name": "Nuvvula Podi",
+    "category": "podi",
+    "veg": true,
+    "price500": 150,
+    "desc": "Roasted sesame podi, a nutty everyday staple."
+  },
+  {
+    "id": 25,
+    "name": "Sweet Mustard Pickle",
+    "category": "pickle",
+    "veg": true,
+    "price500": 160,
+    "desc": "Mustard seed pickle balanced with jaggery sweetness."
+  },
+  {
+    "id": 26,
+    "name": "Tamarind Pickle",
+    "category": "pickle",
+    "veg": true,
+    "price500": 150,
+    "desc": "Thick tamarind pulp pickle, the base of every Andhra thali."
+  },
+  {
+    "id": 27,
+    "name": "Tomato Pickle",
+    "category": "pickle",
+    "veg": true,
+    "price500": 150,
+    "desc": "Ripe tomatoes slow-cooked into a tangy everyday pickle."
+  },
+  {
+    "id": 28,
+    "name": "Mango Pickle",
+    "category": "pickle",
+    "veg": true,
+    "price500": 190,
+    "desc": "Raw mango pickle, the seasonal favourite everyone waits for."
+  }
+]
