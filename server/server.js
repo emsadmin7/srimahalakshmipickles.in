@@ -216,7 +216,7 @@ app.post('/api/orders', wrap(async (req, res) => {
     customer,
     items: lineItems,
     total,
-    paymentMethod: paymentMethod || 'COD',
+    paymentMethod: paymentMethod || 'Website order',
     notes: notes || '',
   });
   const order = created.toObject();
