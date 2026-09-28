@@ -8,6 +8,9 @@ let ACTIVE_TAB = 'orders';
 let ADMIN_PRODUCT_FILTER = 'all'; // 'all' | 'vegPickle' | 'nonvegPickle' | 'podi'
 let PENDING_IMAGE_FILE = null; // File chosen but not yet uploaded, keyed by product id
 let PENDING_IMAGE_PRODUCT_ID = null;
+let dailyChartInstance = null;
+let statusChartInstance = null;
+let topProductsChartInstance = null;
 
 function getPassword() {
   return sessionStorage.getItem('smp_admin_pw') || '';
@@ -161,12 +164,14 @@ function fileToDataUrl(file) {
 function showDashboard() {
   document.getElementById('loginScreen').hidden = true;
   document.getElementById('dashboard').hidden = false;
-  // Always land on the Orders tab after login.
-  ACTIVE_TAB = 'orders';
-  document.querySelectorAll('.admin-tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === 'orders'));
-  document.getElementById('ordersPanel').hidden = false;
+  // Always land on the Dashboard (overview) tab after login.
+  ACTIVE_TAB = 'overview';
+  document.querySelectorAll('.admin-tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === 'overview'));
+  document.getElementById('overviewPanel').hidden = false;
+  document.getElementById('ordersPanel').hidden = true;
   document.getElementById('productsPanel').hidden = true;
   document.getElementById('settingsPanel').hidden = true;
+  if (!document.getElementById('dateFrom').value) setDatePreset('30');
   refresh();
 }
 function showLogin(message) {
@@ -182,6 +187,7 @@ async function refresh() {
     renderStats();
     renderOrders();
     renderProducts();
+    renderOverview();
   } catch (err) {
     if (err && err.authError) {
       // Only a real 401 from the server should log the admin out.
@@ -210,6 +216,193 @@ function renderStats() {
     <div class="stat-card"><div class="value">${formatINR(todayRevenue)}</div><div class="label">Today's revenue</div></div>
     <div class="stat-card"><div class="value">${formatINR(totalRevenue)}</div><div class="label">Total revenue</div></div>
   `;
+}
+
+// ---------- dashboard: date range + analytics + charts ----------
+
+function isoDateOnly(d) {
+  const tzOffsetMs = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - tzOffsetMs).toISOString().slice(0, 10);
+}
+
+function formatDayLabel(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+}
+
+// Sets the From/To inputs for a quick preset. days === 'all' clears the
+// lower bound so computeAnalytics() falls back to the earliest order date.
+function setDatePreset(days) {
+  const to = new Date();
+  document.getElementById('dateTo').value = isoDateOnly(to);
+  if (days === 'all') {
+    document.getElementById('dateFrom').value = '';
+  } else {
+    const from = new Date();
+    from.setDate(from.getDate() - (Number(days) - 1));
+    document.getElementById('dateFrom').value = isoDateOnly(from);
+  }
+  document.querySelectorAll('.date-chip').forEach((c) => c.classList.toggle('active', c.dataset.range === String(days)));
+}
+
+// Builds the day-by-day series, status breakdown and top products for the
+// orders that fall inside [fromStr, toStr] (inclusive, YYYY-MM-DD strings).
+function computeAnalytics(fromStr, toStr) {
+  const toDate = toStr ? new Date(`${toStr}T23:59:59`) : new Date();
+  let fromDate;
+  if (fromStr) {
+    fromDate = new Date(`${fromStr}T00:00:00`);
+  } else if (ORDERS.length) {
+    const earliestMs = ORDERS.reduce((min, o) => Math.min(min, new Date(o.placedAt).getTime()), Infinity);
+    fromDate = new Date(earliestMs);
+    fromDate.setHours(0, 0, 0, 0);
+  } else {
+    fromDate = new Date(toDate);
+    fromDate.setHours(0, 0, 0, 0);
+  }
+
+  const inRange = ORDERS.filter((o) => {
+    const t = new Date(o.placedAt).getTime();
+    return t >= fromDate.getTime() && t <= toDate.getTime();
+  });
+
+  // Build one bucket per day in range, capped so "All time" on a long-running
+  // store still renders a readable chart instead of hundreds of thin bars.
+  const MAX_DAYS = 90;
+  const dayStart = new Date(fromDate); dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(toDate); dayEnd.setHours(0, 0, 0, 0);
+  let dayCount = Math.round((dayEnd - dayStart) / 86400000) + 1;
+  if (dayCount > MAX_DAYS) {
+    dayStart.setTime(dayEnd.getTime() - (MAX_DAYS - 1) * 86400000);
+    dayCount = MAX_DAYS;
+  }
+  const dayMap = new Map();
+  const cursor = new Date(dayStart);
+  for (let i = 0; i < dayCount; i++) {
+    dayMap.set(isoDateOnly(cursor), { orders: 0, revenue: 0 });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  const statusCounts = { Pending: 0, Confirmed: 0, Delivered: 0 };
+  const productRevenue = new Map();
+
+  inRange.forEach((o) => {
+    const key = isoDateOnly(new Date(o.placedAt));
+    if (dayMap.has(key)) {
+      const bucket = dayMap.get(key);
+      bucket.orders += 1;
+      bucket.revenue += o.total || 0;
+    }
+    statusCounts[o.status] = (statusCounts[o.status] || 0) + 1;
+    (o.items || []).forEach((it) => {
+      productRevenue.set(it.name, (productRevenue.get(it.name) || 0) + (it.lineTotal || 0));
+    });
+  });
+
+  const days = Array.from(dayMap.keys());
+  const ordersPerDay = days.map((k) => dayMap.get(k).orders);
+  const revenuePerDay = days.map((k) => dayMap.get(k).revenue);
+  const topProducts = Array.from(productRevenue.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  const totalOrders = inRange.length;
+  const totalRevenue = inRange.reduce((s, o) => s + (o.total || 0), 0);
+  const avgOrder = totalOrders ? Math.round(totalRevenue / totalOrders) : 0;
+  const pendingInRange = inRange.filter((o) => o.status === 'Pending').length;
+
+  return { days, ordersPerDay, revenuePerDay, statusCounts, topProducts, totalOrders, totalRevenue, avgOrder, pendingInRange };
+}
+
+function renderOverview() {
+  const panel = document.getElementById('overviewPanel');
+  if (!panel || typeof Chart === 'undefined') return; // Chart.js failed to load (e.g. offline) — skip charts quietly.
+
+  const fromVal = document.getElementById('dateFrom').value;
+  const toVal = document.getElementById('dateTo').value;
+  const a = computeAnalytics(fromVal, toVal);
+
+  document.getElementById('overviewStatsRow').innerHTML = `
+    <div class="stat-card"><div class="value">${a.totalOrders}</div><div class="label">Orders in range</div></div>
+    <div class="stat-card"><div class="value">${formatINR(a.totalRevenue)}</div><div class="label">Revenue in range</div></div>
+    <div class="stat-card"><div class="value">${formatINR(a.avgOrder)}</div><div class="label">Avg. order value</div></div>
+    <div class="stat-card"><div class="value">${a.pendingInRange}</div><div class="label">Pending in range</div></div>
+  `;
+
+  const labels = a.days.map(formatDayLabel);
+  const gridColor = 'rgba(34,51,26,.08)';
+
+  if (dailyChartInstance) dailyChartInstance.destroy();
+  dailyChartInstance = new Chart(document.getElementById('dailyChart').getContext('2d'), {
+    data: {
+      labels,
+      datasets: [
+        {
+          type: 'bar',
+          label: 'Orders',
+          data: a.ordersPerDay,
+          backgroundColor: 'rgba(46,125,70,.55)',
+          borderRadius: 4,
+          yAxisID: 'y',
+          order: 2,
+        },
+        {
+          type: 'line',
+          label: 'Revenue (₹)',
+          data: a.revenuePerDay,
+          borderColor: '#7A1E17',
+          backgroundColor: 'rgba(122,30,23,.12)',
+          tension: 0.35,
+          fill: true,
+          yAxisID: 'y1',
+          order: 1,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom' } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: gridColor }, title: { display: true, text: 'Orders' } },
+        y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Revenue (₹)' } },
+      },
+    },
+  });
+
+  if (statusChartInstance) statusChartInstance.destroy();
+  const statusLabels = Object.keys(a.statusCounts);
+  statusChartInstance = new Chart(document.getElementById('statusChart').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: statusLabels,
+      datasets: [{
+        data: statusLabels.map((s) => a.statusCounts[s]),
+        backgroundColor: ['#E0A62B', '#2E7D46', '#2E5A8A'],
+        borderWidth: 0,
+      }],
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } },
+  });
+
+  if (topProductsChartInstance) topProductsChartInstance.destroy();
+  topProductsChartInstance = new Chart(document.getElementById('topProductsChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: a.topProducts.length ? a.topProducts.map(([name]) => name) : ['No orders yet'],
+      datasets: [{
+        label: 'Revenue (₹)',
+        data: a.topProducts.length ? a.topProducts.map(([, rev]) => rev) : [0],
+        backgroundColor: 'rgba(224,166,43,.8)',
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true, grid: { color: gridColor } }, y: { grid: { display: false } } },
+    },
+  });
 }
 
 function renderOrders() {
@@ -288,7 +481,7 @@ function renderProducts() {
   list.innerHTML = items.map((p) => `
     <div class="product-card" data-product="${p.id}">
       <div class="product-photo" data-photo="${p.id}">
-        ${p.image ? `<img src="/${p.image}" alt="${p.name}">` : `<span class="product-photo-placeholder">${p.category === 'podi' ? '🥣' : '🫙'}</span>`}
+        ${p.image ? `<img src="${/^https?:/.test(p.image) ? p.image : '/' + p.image}" alt="${p.name}">` : `<span class="product-photo-placeholder">${p.category === 'podi' ? '🥣' : '🫙'}</span>`}
       </div>
       <div class="product-body">
         <div class="product-name-row">
@@ -477,10 +670,26 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.admin-tab').forEach((t) => t.classList.remove('active'));
       tab.classList.add('active');
       ACTIVE_TAB = tab.dataset.tab;
+      document.getElementById('overviewPanel').hidden = ACTIVE_TAB !== 'overview';
       document.getElementById('ordersPanel').hidden = ACTIVE_TAB !== 'orders';
       document.getElementById('productsPanel').hidden = ACTIVE_TAB !== 'products';
       document.getElementById('settingsPanel').hidden = ACTIVE_TAB !== 'settings';
+      // Re-render the charts every time this tab is shown: a canvas that was
+      // hidden (display:none) reports zero size, so Chart.js needs a fresh
+      // draw once it's actually visible.
+      if (ACTIVE_TAB === 'overview') renderOverview();
     });
+  });
+
+  document.querySelectorAll('.date-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      setDatePreset(chip.dataset.range);
+      renderOverview();
+    });
+  });
+  document.getElementById('applyDateRange').addEventListener('click', () => {
+    document.querySelectorAll('.date-chip').forEach((c) => c.classList.remove('active'));
+    renderOverview();
   });
 
   document.getElementById('addProductBtn').addEventListener('click', () => {

@@ -318,7 +318,7 @@ function renderGrid(category, containerId) {
 function cardTemplate(p, i) {
   const vegClass = p.veg === false ? 'nonveg' : 'veg';
   const media = p.image
-    ? `<img class="card-photo" src="/${p.image}" alt="${p.name}" loading="lazy">`
+    ? `<img class="card-photo" src="${/^https?:/.test(p.image) ? p.image : '/' + p.image}" alt="${p.name}" loading="lazy">`
     : iconFor(p, i);
   return `
   <div class="card" data-card="${p.id}">
