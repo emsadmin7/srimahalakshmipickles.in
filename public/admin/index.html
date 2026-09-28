@@ -48,6 +48,7 @@
       </div>
     </div>
     <div class="header-actions">
+      <button class="btn btn-outline bell-btn" id="bellBtn" aria-label="Notifications">🔔<span class="count-badge" id="bellBadge" hidden>0</span></button>
       <button class="btn btn-outline" id="refreshBtn">↻ Refresh</button>
       <a class="btn btn-outline" href="/" target="_blank">View site</a>
       <button class="btn btn-outline" id="logoutBtn">Log out</button>
@@ -58,12 +59,57 @@
     <section class="stats-row" id="statsRow"></section>
 
     <div class="admin-tabs">
-      <button class="admin-tab active" data-tab="orders">Orders</button>
+      <button class="admin-tab active" data-tab="overview">Dashboard</button>
+      <button class="admin-tab" data-tab="orders">Orders</button>
+      <button class="admin-tab" data-tab="notifications">Notifications <span class="count-badge" id="tabBadge" hidden>0</span></button>
       <button class="admin-tab" data-tab="products">Products</button>
       <button class="admin-tab" data-tab="settings">Settings</button>
     </div>
 
-    <section class="orders-panel" id="ordersPanel">
+    <!-- ---------- Dashboard ---------- -->
+    <section class="overview-panel" id="overviewPanel">
+      <div class="date-filter-row">
+        <div class="date-filter-left">
+          <div class="date-filter-title">📅 Date range <span class="date-range-label" id="dateRangeLabel"></span></div>
+          <div class="date-presets" id="datePresets">
+            <button type="button" class="date-chip" data-range="today">Today</button>
+            <button type="button" class="date-chip" data-range="yesterday">Yesterday</button>
+            <button type="button" class="date-chip" data-range="7">Last 7 days</button>
+            <button type="button" class="date-chip" data-range="30">Last 30 days</button>
+            <button type="button" class="date-chip" data-range="thisMonth">This month</button>
+            <button type="button" class="date-chip" data-range="lastMonth">Last month</button>
+            <button type="button" class="date-chip" data-range="90">Last 90 days</button>
+            <button type="button" class="date-chip" data-range="all">All time</button>
+          </div>
+        </div>
+        <div class="date-custom">
+          <label>From <input type="date" id="dateFrom"></label>
+          <label>To <input type="date" id="dateTo"></label>
+          <button type="button" class="btn btn-primary btn-sm" id="applyDateRange">Apply</button>
+        </div>
+      </div>
+      <p class="chart-note">Revenue and revenue charts count only <strong>Confirmed</strong> and <strong>Delivered</strong> orders. Mark an order as Confirmed after you speak to the customer on call or WhatsApp, and the graphs update instantly.</p>
+
+      <section class="stats-row" id="overviewStatsRow"></section>
+
+      <div class="charts-grid">
+        <div class="chart-card chart-card-wide">
+          <h3 id="dailyChartTitle">Orders by day &amp; confirmed revenue</h3>
+          <canvas id="dailyChart" height="220"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Orders by status</h3>
+          <canvas id="statusChart" height="220"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Top products (confirmed revenue)</h3>
+          <canvas id="topProductsChart" height="220"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- Orders ---------- -->
+    <section class="orders-panel" id="ordersPanel" hidden>
       <div class="panel-head">
         <h2>Orders</h2>
         <div class="filter-row">
@@ -76,6 +122,19 @@
       <div id="ordersList" class="orders-list"></div>
     </section>
 
+    <!-- ---------- Notifications ---------- -->
+    <section class="orders-panel" id="notificationsPanel" hidden>
+      <div class="panel-head">
+        <h2>Notifications</h2>
+        <div class="notif-tools">
+          <label class="sound-toggle"><input type="checkbox" id="soundToggle" checked> Sound</label>
+          <button type="button" class="btn btn-outline btn-sm" id="markAllReadBtn">Mark all read</button>
+        </div>
+      </div>
+      <div id="notificationsList" class="notif-list"></div>
+    </section>
+
+    <!-- ---------- Products ---------- -->
     <section class="products-panel" id="productsPanel" hidden>
       <div class="panel-head">
         <h2>Products</h2>
@@ -115,6 +174,7 @@
       <div id="productsList" class="products-grid"></div>
     </section>
 
+    <!-- ---------- Settings ---------- -->
     <section class="settings-panel" id="settingsPanel" hidden>
       <div class="panel-head">
         <h2>Settings</h2>
@@ -131,8 +191,50 @@
   </main>
 </div>
 
+<!-- ============== NEW ORDER ALERT (animated dog) ============== -->
+<div class="dog-alert" id="dogAlert" role="alert" aria-live="assertive">
+  <div class="dog-stage">
+    <svg class="dog-svg" viewBox="0 0 170 140" aria-hidden="true">
+      <!-- tail -->
+      <g class="dog-tail"><path d="M40 84 C22 76 16 58 26 46" stroke="#C98B4E" stroke-width="10" fill="none" stroke-linecap="round"/></g>
+      <!-- body & legs -->
+      <ellipse cx="78" cy="96" rx="42" ry="25" fill="#D9A066"/>
+      <rect x="50" y="104" width="13" height="26" rx="6" fill="#C98B4E"/>
+      <rect x="92" y="104" width="13" height="26" rx="6" fill="#C98B4E"/>
+      <ellipse cx="56" cy="130" rx="10" ry="5" fill="#B87A3E"/>
+      <ellipse cx="99" cy="130" rx="10" ry="5" fill="#B87A3E"/>
+      <ellipse cx="78" cy="106" rx="22" ry="13" fill="#F6DDB8"/>
+      <!-- head -->
+      <g class="dog-head">
+        <g class="dog-ear-l"><ellipse cx="92" cy="52" rx="10" ry="20" fill="#8B5A2B" transform="rotate(18 92 52)"/></g>
+        <g class="dog-ear-r"><ellipse cx="134" cy="52" rx="10" ry="20" fill="#8B5A2B" transform="rotate(-18 134 52)"/></g>
+        <circle cx="113" cy="60" r="28" fill="#E8B77A"/>
+        <ellipse cx="113" cy="72" rx="15" ry="11" fill="#F6DDB8"/>
+        <g class="dog-eye"><circle cx="103" cy="56" r="4" fill="#2B1B12"/><circle cx="104.3" cy="54.6" r="1.3" fill="#fff"/></g>
+        <g class="dog-eye"><circle cx="123" cy="56" r="4" fill="#2B1B12"/><circle cx="124.3" cy="54.6" r="1.3" fill="#fff"/></g>
+        <ellipse cx="113" cy="65" rx="5.5" ry="3.8" fill="#2B1B12"/>
+        <path d="M105 74 Q113 82 121 74" stroke="#2B1B12" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <ellipse class="dog-tongue" cx="113" cy="80" rx="4.2" ry="5.5" fill="#E86A7A"/>
+      </g>
+      <!-- collar -->
+      <rect x="94" y="90" width="38" height="7" rx="3.5" fill="#7A1E17"/>
+      <circle cx="113" cy="101" r="4" fill="#E0A62B"/>
+    </svg>
+    <div class="dog-bubble">
+      <button type="button" class="dog-close" id="dogCloseBtn" aria-label="Dismiss">&times;</button>
+      <div class="dog-title">🛒 New order!</div>
+      <div class="dog-text" id="dogText"></div>
+      <div class="dog-sub" id="dogSub"></div>
+      <div class="dog-actions">
+        <button type="button" class="btn btn-primary btn-sm" id="dogViewBtn">View order</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <input type="file" id="imageFileInput" accept="image/png,image/jpeg,image/webp" hidden>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="admin.js"></script>
 </body>
 </html>

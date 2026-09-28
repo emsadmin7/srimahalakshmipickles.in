@@ -5,8 +5,8 @@
 
 const CONFIG = {
   businessName: 'Sri Mahalakshmi Pickles & Spices',
-  phones: ['8790387333', '6281245345'],
-  whatsappNumber: '918790387333', // country code + number, no + or spaces
+  phones: ['6281425345', '9390237571'],
+  whatsappNumber: '916281425345', // country code + number, no + or spaces
 };
 
 const WEIGHTS = ['250g', '500g', '1kg', '2kg'];

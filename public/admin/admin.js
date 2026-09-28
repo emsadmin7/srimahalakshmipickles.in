@@ -11,6 +11,17 @@ let PENDING_IMAGE_PRODUCT_ID = null;
 let dailyChartInstance = null;
 let statusChartInstance = null;
 let topProductsChartInstance = null;
+const OPEN_ORDERS = new Set();
+const LS_SEEN = 'smp_last_seen_order';
+const LS_SOUND = 'smp_sound_on';
+const BASE_TITLE = 'Admin Console — Sri Mahalakshmi Pickles & Spices';
+let LAST_SEEN_TS = null;
+let KNOWN_IDS = new Set();
+let FIRST_LOAD_DONE = false;
+let POLL_TIMER = null;
+let NEW_QUEUE = [];
+let DOG_TIMER = null;
+let SOUND_ON = true;
 
 function getPassword() {
   return sessionStorage.getItem('smp_admin_pw') || '';
@@ -77,11 +88,13 @@ async function fetchProducts() {
 }
 
 async function updateStatus(orderId, status) {
-  await fetch(`/api/admin/orders/${orderId}`, {
+  const res = await fetch(`/api/admin/orders/${orderId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', 'x-admin-password': getPassword() },
     body: JSON.stringify({ status }),
   });
+  if (!res.ok) throw new Error('Could not update the order status');
+  return res.json();
 }
 
 async function updateProductPrice(id, price500) {
@@ -161,33 +174,112 @@ function fileToDataUrl(file) {
   });
 }
 
+function switchTab(name) {
+  ACTIVE_TAB = name;
+  document.querySelectorAll('.admin-tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
+  ['overview', 'orders', 'notifications', 'products', 'settings'].forEach((p) => {
+    const el = document.getElementById(p + 'Panel');
+    if (el) el.hidden = p !== name;
+  });
+  // A canvas that was hidden reports zero size, so redraw charts when shown.
+  if (name === 'overview') renderOverview();
+  if (name === 'notifications') renderNotifications();
+}
+
 function showDashboard() {
   document.getElementById('loginScreen').hidden = true;
   document.getElementById('dashboard').hidden = false;
-  // Always land on the Dashboard (overview) tab after login.
-  ACTIVE_TAB = 'overview';
-  document.querySelectorAll('.admin-tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === 'overview'));
-  document.getElementById('overviewPanel').hidden = false;
-  document.getElementById('ordersPanel').hidden = true;
-  document.getElementById('productsPanel').hidden = true;
-  document.getElementById('settingsPanel').hidden = true;
+  try { SOUND_ON = localStorage.getItem(LS_SOUND) !== '0'; } catch { SOUND_ON = true; }
+  document.getElementById('soundToggle').checked = SOUND_ON;
+  FIRST_LOAD_DONE = false;
+  switchTab('overview');
   if (!document.getElementById('dateFrom').value) setDatePreset('30');
   refresh();
+  startPolling();
 }
 function showLogin(message) {
+  stopPolling();
   document.getElementById('loginScreen').hidden = false;
   document.getElementById('dashboard').hidden = true;
   document.getElementById('loginError').textContent = message || '';
 }
 
+function startPolling() {
+  stopPolling();
+  POLL_TIMER = setInterval(pollOrders, 15000); // check for new orders every 15 seconds
+}
+function stopPolling() {
+  if (POLL_TIMER) clearInterval(POLL_TIMER);
+  POLL_TIMER = null;
+}
+
+function loadLastSeen() {
+  try { const v = localStorage.getItem(LS_SEEN); return v ? Number(v) : null; } catch { return null; }
+}
+function saveLastSeen(ts) {
+  try { localStorage.setItem(LS_SEEN, String(ts)); } catch { /* ignore */ }
+}
+function newestOrderTs() {
+  return ORDERS.reduce((m, o) => Math.max(m, new Date(o.placedAt).getTime()), 0);
+}
+function unreadOrders() {
+  return ORDERS.filter((o) => new Date(o.placedAt).getTime() > (LAST_SEEN_TS || 0));
+}
+
+// Takes a fresh orders list, works out which orders are new since we last
+// looked, refreshes every view and (optionally) announces them with the dog.
+function ingestOrders(fresh) {
+  const newOnes = FIRST_LOAD_DONE ? fresh.filter((o) => !KNOWN_IDS.has(o.orderId)) : [];
+  ORDERS = fresh;
+  fresh.forEach((o) => KNOWN_IDS.add(o.orderId));
+
+  if (!FIRST_LOAD_DONE) {
+    FIRST_LOAD_DONE = true;
+    LAST_SEEN_TS = loadLastSeen();
+    if (LAST_SEEN_TS === null) { // very first visit: don't flood with old orders
+      LAST_SEEN_TS = newestOrderTs();
+      saveLastSeen(LAST_SEEN_TS);
+    }
+    const missed = unreadOrders();
+    if (missed.length) {
+      NEW_QUEUE = missed.sort((a, b) => new Date(a.placedAt) - new Date(b.placedAt));
+      showDog();
+    }
+  } else if (newOnes.length) {
+    newOnes.sort((a, b) => new Date(a.placedAt) - new Date(b.placedAt));
+    NEW_QUEUE = NEW_QUEUE.concat(newOnes);
+    playDing();
+    showDog();
+  }
+  renderAll();
+}
+
+function renderAll() {
+  renderStats();
+  renderOrders();
+  renderNotifications();
+  updateBadges();
+  if (ACTIVE_TAB === 'overview') renderOverview();
+}
+
+async function pollOrders() {
+  try {
+    ingestOrders(await fetchOrders());
+  } catch (err) {
+    if (err && err.authError) {
+      clearPassword();
+      showLogin('Session expired, please log in again.');
+    }
+    // network hiccup: stay quiet and try again on the next tick
+  }
+}
+
 async function refresh() {
   try {
-    ORDERS = await fetchOrders();
+    const fresh = await fetchOrders();
     PRODUCTS = await fetchProducts();
-    renderStats();
-    renderOrders();
+    ingestOrders(fresh);
     renderProducts();
-    renderOverview();
   } catch (err) {
     if (err && err.authError) {
       // Only a real 401 from the server should log the admin out.
@@ -201,21 +293,135 @@ async function refresh() {
   }
 }
 
+const isConfirmedLike = (o) => o.status === 'Confirmed' || o.status === 'Delivered';
+
 function renderStats() {
   const total = ORDERS.length;
   const pending = ORDERS.filter((o) => o.status === 'Pending').length;
-  const totalRevenue = ORDERS.reduce((s, o) => s + (o.total || 0), 0);
+  const confirmed = ORDERS.filter(isConfirmedLike);
+  const totalRevenue = confirmed.reduce((s, o) => s + (o.total || 0), 0);
   const today = new Date().toDateString();
-  const todayRevenue = ORDERS
+  const todayRevenue = confirmed
     .filter((o) => new Date(o.placedAt).toDateString() === today)
     .reduce((s, o) => s + (o.total || 0), 0);
 
   document.getElementById('statsRow').innerHTML = `
     <div class="stat-card"><div class="value">${total}</div><div class="label">Total orders</div></div>
-    <div class="stat-card"><div class="value">${pending}</div><div class="label">Pending orders</div></div>
-    <div class="stat-card"><div class="value">${formatINR(todayRevenue)}</div><div class="label">Today's revenue</div></div>
-    <div class="stat-card"><div class="value">${formatINR(totalRevenue)}</div><div class="label">Total revenue</div></div>
+    <div class="stat-card ${pending ? 'attention' : ''}"><div class="value">${pending}</div><div class="label">Pending (need a call)</div></div>
+    <div class="stat-card"><div class="value">${formatINR(todayRevenue)}</div><div class="label">Today's confirmed revenue</div></div>
+    <div class="stat-card"><div class="value">${formatINR(totalRevenue)}</div><div class="label">Total confirmed revenue</div></div>
   `;
+}
+
+// ---------- notifications + animated dog ----------
+
+function updateBadges() {
+  const n = unreadOrders().length;
+  ['bellBadge', 'tabBadge'].forEach((id) => {
+    const el = document.getElementById(id);
+    el.textContent = n > 99 ? '99+' : String(n);
+    el.hidden = n === 0;
+  });
+  document.title = n ? `(${n}) New order! — ${BASE_TITLE}` : BASE_TITLE;
+}
+
+function renderNotifications() {
+  const list = document.getElementById('notificationsList');
+  if (!list) return;
+  const recent = ORDERS.slice().sort((a, b) => new Date(b.placedAt) - new Date(a.placedAt)).slice(0, 40);
+  if (!recent.length) {
+    list.innerHTML = '<div class="empty-state">No orders yet. New orders will appear here.</div>';
+    return;
+  }
+  const seen = LAST_SEEN_TS || 0;
+  list.innerHTML = recent.map((o) => {
+    const unread = new Date(o.placedAt).getTime() > seen;
+    const count = (o.items || []).reduce((s, it) => s + (it.qty || 0), 0);
+    return `
+      <div class="notif-item ${unread ? 'unread' : ''}" data-open-order="${o.orderId}">
+        <div class="notif-icon">${unread ? '🐶' : '🛒'}</div>
+        <div class="notif-body">
+          <div class="notif-title">New order from ${escapeHtml(o.customer.name)}${unread ? '<span class="new-pill">NEW</span>' : ''}</div>
+          <div class="notif-meta">${escapeHtml(o.customer.phone)} · ${count} item${count === 1 ? '' : 's'} · ${formatDate(o.placedAt)}</div>
+        </div>
+        <div class="notif-side">
+          <div class="notif-total">${formatINR(o.total)}</div>
+          <span class="status-badge status-${o.status}">${o.status}</span>
+        </div>
+      </div>`;
+  }).join('');
+  list.querySelectorAll('[data-open-order]').forEach((el) => {
+    el.addEventListener('click', () => openOrder(el.dataset.openOrder));
+  });
+}
+
+function markAllRead() {
+  LAST_SEEN_TS = Math.max(newestOrderTs(), LAST_SEEN_TS || 0);
+  saveLastSeen(LAST_SEEN_TS);
+  hideDog();
+  renderNotifications();
+  updateBadges();
+}
+
+function openOrder(orderId) {
+  hideDog();
+  ACTIVE_FILTER = 'All';
+  document.querySelectorAll('.filter-chip').forEach((c) => c.classList.toggle('active', c.dataset.filter === 'All'));
+  OPEN_ORDERS.add(orderId);
+  switchTab('orders');
+  renderOrders();
+  const card = document.querySelector(`[data-order="${orderId}"]`);
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function escapeHtml(str) {
+  return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function showDog() {
+  const box = document.getElementById('dogAlert');
+  if (!box || !NEW_QUEUE.length) return;
+  const newest = NEW_QUEUE[NEW_QUEUE.length - 1];
+  const more = NEW_QUEUE.length - 1;
+  const count = (newest.items || []).reduce((s, it) => s + (it.qty || 0), 0);
+  document.getElementById('dogText').textContent = `${newest.customer.name} · ${formatINR(newest.total)}`;
+  document.getElementById('dogSub').textContent =
+    `${count} item${count === 1 ? '' : 's'}${more > 0 ? ` · +${more} more new order${more === 1 ? '' : 's'}` : ''}`;
+  box.dataset.orderId = newest.orderId;
+  box.classList.remove('show');
+  void box.offsetWidth; // restart the run-in animation
+  box.classList.add('show');
+  const bell = document.getElementById('bellBtn');
+  bell.classList.remove('ringing'); void bell.offsetWidth; bell.classList.add('ringing');
+  clearTimeout(DOG_TIMER);
+  DOG_TIMER = setTimeout(hideDog, 20000);
+}
+function hideDog() {
+  const box = document.getElementById('dogAlert');
+  if (box) box.classList.remove('show');
+  NEW_QUEUE = [];
+  clearTimeout(DOG_TIMER);
+}
+
+function playDing() {
+  if (!SOUND_ON) return;
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    [880, 1175, 1568].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      osc.connect(gain); gain.connect(ctx.destination);
+      const t = ctx.currentTime + i * 0.16;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.38);
+      osc.start(t); osc.stop(t + 0.42);
+    });
+    setTimeout(() => ctx.close && ctx.close(), 1200);
+  } catch { /* sound is optional */ }
 }
 
 // ---------- dashboard: date range + analytics + charts ----------
@@ -230,25 +436,31 @@ function formatDayLabel(iso) {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 }
 
-// Sets the From/To inputs for a quick preset. days === 'all' clears the
-// lower bound so computeAnalytics() falls back to the earliest order date.
-function setDatePreset(days) {
-  const to = new Date();
-  document.getElementById('dateTo').value = isoDateOnly(to);
-  if (days === 'all') {
-    document.getElementById('dateFrom').value = '';
-  } else {
-    const from = new Date();
-    from.setDate(from.getDate() - (Number(days) - 1));
-    document.getElementById('dateFrom').value = isoDateOnly(from);
+// Quick presets: today, yesterday, N days, this month, last month, all time.
+function setDatePreset(range) {
+  const now = new Date();
+  let from = null;
+  let to = new Date(now);
+  if (range === 'today') {
+    from = new Date(now);
+  } else if (range === 'yesterday') {
+    from = new Date(now); from.setDate(from.getDate() - 1);
+    to = new Date(from);
+  } else if (range === 'thisMonth') {
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if (range === 'lastMonth') {
+    from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    to = new Date(now.getFullYear(), now.getMonth(), 0);
+  } else if (range !== 'all') {
+    from = new Date(now); from.setDate(from.getDate() - (Number(range) - 1));
   }
-  document.querySelectorAll('.date-chip').forEach((c) => c.classList.toggle('active', c.dataset.range === String(days)));
+  document.getElementById('dateFrom').value = from ? isoDateOnly(from) : '';
+  document.getElementById('dateTo').value = isoDateOnly(to);
+  document.querySelectorAll('.date-chip').forEach((c) => c.classList.toggle('active', c.dataset.range === String(range)));
 }
 
-// Builds the day-by-day series, status breakdown and top products for the
-// orders that fall inside [fromStr, toStr] (inclusive, YYYY-MM-DD strings).
-function computeAnalytics(fromStr, toStr) {
-  const toDate = toStr ? new Date(`${toStr}T23:59:59`) : new Date();
+function rangeBounds(fromStr, toStr) {
+  const toDate = toStr ? new Date(`${toStr}T23:59:59.999`) : new Date();
   let fromDate;
   if (fromStr) {
     fromDate = new Date(`${fromStr}T00:00:00`);
@@ -260,56 +472,95 @@ function computeAnalytics(fromStr, toStr) {
     fromDate = new Date(toDate);
     fromDate.setHours(0, 0, 0, 0);
   }
+  return { fromDate, toDate };
+}
 
-  const inRange = ORDERS.filter((o) => {
+function ordersBetween(fromDate, toDate) {
+  return ORDERS.filter((o) => {
     const t = new Date(o.placedAt).getTime();
     return t >= fromDate.getTime() && t <= toDate.getTime();
   });
+}
 
-  // Build one bucket per day in range, capped so "All time" on a long-running
-  // store still renders a readable chart instead of hundreds of thin bars.
-  const MAX_DAYS = 90;
-  const dayStart = new Date(fromDate); dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(toDate); dayEnd.setHours(0, 0, 0, 0);
-  let dayCount = Math.round((dayEnd - dayStart) / 86400000) + 1;
-  if (dayCount > MAX_DAYS) {
-    dayStart.setTime(dayEnd.getTime() - (MAX_DAYS - 1) * 86400000);
-    dayCount = MAX_DAYS;
-  }
-  const dayMap = new Map();
-  const cursor = new Date(dayStart);
-  for (let i = 0; i < dayCount; i++) {
-    dayMap.set(isoDateOnly(cursor), { orders: 0, revenue: 0 });
-    cursor.setDate(cursor.getDate() + 1);
+function summarize(list) {
+  const confirmed = list.filter(isConfirmedLike);
+  const revenue = confirmed.reduce((s, o) => s + (o.total || 0), 0);
+  return { orders: list.length, confirmed: confirmed.length, revenue };
+}
+
+// Builds the buckets (hourly for a single day, otherwise daily), status
+// breakdown and top products for the orders inside the chosen range.
+function computeAnalytics(fromStr, toStr) {
+  const { fromDate, toDate } = rangeBounds(fromStr, toStr);
+  const inRange = ordersBetween(fromDate, toDate);
+  const sameDay = isoDateOnly(fromDate) === isoDateOnly(toDate);
+
+  const buckets = new Map(); // key -> { label, Pending, Confirmed, Delivered, revenue }
+  const blank = (label) => ({ label, Pending: 0, Confirmed: 0, Delivered: 0, revenue: 0 });
+  let keyOf;
+
+  if (sameDay) {
+    for (let h = 0; h < 24; h++) buckets.set(h, blank(`${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`));
+    keyOf = (o) => new Date(o.placedAt).getHours();
+  } else {
+    const MAX_DAYS = 90; // keep "All time" readable
+    const dayStart = new Date(fromDate); dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(toDate); dayEnd.setHours(0, 0, 0, 0);
+    let dayCount = Math.round((dayEnd - dayStart) / 86400000) + 1;
+    if (dayCount > MAX_DAYS) {
+      dayStart.setTime(dayEnd.getTime() - (MAX_DAYS - 1) * 86400000);
+      dayCount = MAX_DAYS;
+    }
+    const cursor = new Date(dayStart);
+    for (let i = 0; i < dayCount; i++) {
+      const k = isoDateOnly(cursor);
+      buckets.set(k, blank(formatDayLabel(k)));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    keyOf = (o) => isoDateOnly(new Date(o.placedAt));
   }
 
   const statusCounts = { Pending: 0, Confirmed: 0, Delivered: 0 };
   const productRevenue = new Map();
 
   inRange.forEach((o) => {
-    const key = isoDateOnly(new Date(o.placedAt));
-    if (dayMap.has(key)) {
-      const bucket = dayMap.get(key);
-      bucket.orders += 1;
-      bucket.revenue += o.total || 0;
+    const b = buckets.get(keyOf(o));
+    if (b) {
+      b[o.status] = (b[o.status] || 0) + 1;
+      if (isConfirmedLike(o)) b.revenue += o.total || 0;
     }
     statusCounts[o.status] = (statusCounts[o.status] || 0) + 1;
-    (o.items || []).forEach((it) => {
-      productRevenue.set(it.name, (productRevenue.get(it.name) || 0) + (it.lineTotal || 0));
-    });
+    if (isConfirmedLike(o)) {
+      (o.items || []).forEach((it) => {
+        productRevenue.set(it.name, (productRevenue.get(it.name) || 0) + (it.lineTotal || 0));
+      });
+    }
   });
 
-  const days = Array.from(dayMap.keys());
-  const ordersPerDay = days.map((k) => dayMap.get(k).orders);
-  const revenuePerDay = days.map((k) => dayMap.get(k).revenue);
-  const topProducts = Array.from(productRevenue.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const rows = Array.from(buckets.values());
+  const topProducts = Array.from(productRevenue.entries()).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const current = summarize(inRange);
 
-  const totalOrders = inRange.length;
-  const totalRevenue = inRange.reduce((s, o) => s + (o.total || 0), 0);
-  const avgOrder = totalOrders ? Math.round(totalRevenue / totalOrders) : 0;
-  const pendingInRange = inRange.filter((o) => o.status === 'Pending').length;
+  // Compare with the previous period of the same length (not for "All time").
+  let previous = null;
+  if (fromStr) {
+    const span = toDate.getTime() - fromDate.getTime();
+    const prevTo = new Date(fromDate.getTime() - 1);
+    const prevFrom = new Date(prevTo.getTime() - span);
+    previous = summarize(ordersBetween(prevFrom, prevTo));
+  }
 
-  return { days, ordersPerDay, revenuePerDay, statusCounts, topProducts, totalOrders, totalRevenue, avgOrder, pendingInRange };
+  const avgOrder = current.confirmed ? Math.round(current.revenue / current.confirmed) : 0;
+  return { rows, sameDay, statusCounts, topProducts, current, previous, avgOrder, fromDate, toDate };
+}
+
+function deltaHTML(cur, prev) {
+  if (prev === null || prev === undefined) return '';
+  if (prev === 0 && cur === 0) return '<span class="delta flat">— same as previous period</span>';
+  if (prev === 0) return '<span class="delta up">▲ new vs previous period</span>';
+  const pct = Math.round(((cur - prev) / prev) * 100);
+  if (pct === 0) return '<span class="delta flat">— same as previous period</span>';
+  return `<span class="delta ${pct > 0 ? 'up' : 'down'}">${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}% vs previous period</span>`;
 }
 
 function renderOverview() {
@@ -319,15 +570,22 @@ function renderOverview() {
   const fromVal = document.getElementById('dateFrom').value;
   const toVal = document.getElementById('dateTo').value;
   const a = computeAnalytics(fromVal, toVal);
+  const pendingInRange = a.statusCounts.Pending || 0;
+
+  const fmt = (d) => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  document.getElementById('dateRangeLabel').textContent =
+    a.sameDay ? `· ${fmt(a.fromDate)}` : `· ${fmt(a.fromDate)} → ${fmt(a.toDate)}`;
+  document.getElementById('dailyChartTitle').textContent =
+    a.sameDay ? 'Orders by hour & confirmed revenue' : 'Orders by day & confirmed revenue';
 
   document.getElementById('overviewStatsRow').innerHTML = `
-    <div class="stat-card"><div class="value">${a.totalOrders}</div><div class="label">Orders in range</div></div>
-    <div class="stat-card"><div class="value">${formatINR(a.totalRevenue)}</div><div class="label">Revenue in range</div></div>
-    <div class="stat-card"><div class="value">${formatINR(a.avgOrder)}</div><div class="label">Avg. order value</div></div>
-    <div class="stat-card"><div class="value">${a.pendingInRange}</div><div class="label">Pending in range</div></div>
+    <div class="stat-card"><div class="value">${a.current.orders}</div><div class="label">Orders in range</div>${deltaHTML(a.current.orders, a.previous && a.previous.orders)}</div>
+    <div class="stat-card"><div class="value">${formatINR(a.current.revenue)}</div><div class="label">Confirmed revenue</div>${deltaHTML(a.current.revenue, a.previous && a.previous.revenue)}</div>
+    <div class="stat-card"><div class="value">${formatINR(a.avgOrder)}</div><div class="label">Avg. confirmed order</div></div>
+    <div class="stat-card ${pendingInRange ? 'attention' : ''}"><div class="value">${pendingInRange}</div><div class="label">Pending — waiting for confirmation</div></div>
   `;
 
-  const labels = a.days.map(formatDayLabel);
+  const labels = a.rows.map((r) => r.label);
   const gridColor = 'rgba(34,51,26,.08)';
 
   if (dailyChartInstance) dailyChartInstance.destroy();
@@ -335,25 +593,13 @@ function renderOverview() {
     data: {
       labels,
       datasets: [
+        { type: 'bar', label: 'Pending', data: a.rows.map((r) => r.Pending), backgroundColor: 'rgba(224,166,43,.85)', stack: 'orders', yAxisID: 'y', order: 2 },
+        { type: 'bar', label: 'Confirmed', data: a.rows.map((r) => r.Confirmed), backgroundColor: 'rgba(46,125,70,.85)', stack: 'orders', yAxisID: 'y', order: 2 },
+        { type: 'bar', label: 'Delivered', data: a.rows.map((r) => r.Delivered), backgroundColor: 'rgba(46,90,138,.85)', stack: 'orders', borderRadius: 4, yAxisID: 'y', order: 2 },
         {
-          type: 'bar',
-          label: 'Orders',
-          data: a.ordersPerDay,
-          backgroundColor: 'rgba(46,125,70,.55)',
-          borderRadius: 4,
-          yAxisID: 'y',
-          order: 2,
-        },
-        {
-          type: 'line',
-          label: 'Revenue (₹)',
-          data: a.revenuePerDay,
-          borderColor: '#7A1E17',
-          backgroundColor: 'rgba(122,30,23,.12)',
-          tension: 0.35,
-          fill: true,
-          yAxisID: 'y1',
-          order: 1,
+          type: 'line', label: 'Confirmed revenue (₹)', data: a.rows.map((r) => r.revenue),
+          borderColor: '#7A1E17', backgroundColor: 'rgba(122,30,23,.12)', tension: 0.35, fill: true,
+          pointRadius: 3, yAxisID: 'y1', order: 1,
         },
       ],
     },
@@ -362,9 +608,9 @@ function renderOverview() {
       interaction: { mode: 'index', intersect: false },
       plugins: { legend: { position: 'bottom' } },
       scales: {
-        x: { grid: { display: false } },
-        y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: gridColor }, title: { display: true, text: 'Orders' } },
-        y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Revenue (₹)' } },
+        x: { stacked: true, grid: { display: false } },
+        y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, grid: { color: gridColor }, title: { display: true, text: 'Orders' } },
+        y1: { stacked: false, beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Revenue (₹)' } },
       },
     },
   });
@@ -376,7 +622,7 @@ function renderOverview() {
     data: {
       labels: statusLabels,
       datasets: [{
-        data: statusLabels.map((s) => a.statusCounts[s]),
+        data: statusLabels.map((k) => a.statusCounts[k]),
         backgroundColor: ['#E0A62B', '#2E7D46', '#2E5A8A'],
         borderWidth: 0,
       }],
@@ -388,11 +634,11 @@ function renderOverview() {
   topProductsChartInstance = new Chart(document.getElementById('topProductsChart').getContext('2d'), {
     type: 'bar',
     data: {
-      labels: a.topProducts.length ? a.topProducts.map(([name]) => name) : ['No orders yet'],
+      labels: a.topProducts.length ? a.topProducts.map(([name]) => name) : ['No confirmed orders yet'],
       datasets: [{
         label: 'Revenue (₹)',
         data: a.topProducts.length ? a.topProducts.map(([, rev]) => rev) : [0],
-        backgroundColor: 'rgba(224,166,43,.8)',
+        backgroundColor: 'rgba(224,166,43,.85)',
         borderRadius: 4,
       }],
     },
@@ -419,34 +665,35 @@ function renderOrders() {
       <div class="order-top" data-toggle="${o.orderId}">
         <div>
           <div class="order-id">${o.orderId}</div>
-          <div class="order-meta">${o.customer.name} · ${o.customer.phone} · ${formatDate(o.placedAt)}</div>
+          <div class="order-meta">${escapeHtml(o.customer.name)} · ${escapeHtml(o.customer.phone)} · ${formatDate(o.placedAt)}</div>
         </div>
         <div style="text-align:right;">
           <div class="order-total">${formatINR(o.total)}</div>
           <span class="status-badge status-${o.status}">${o.status}</span>
         </div>
       </div>
-      <div class="order-details" id="details-${o.orderId}">
+      <div class="order-details ${OPEN_ORDERS.has(o.orderId) ? 'open' : ''}" id="details-${o.orderId}">
         <div class="detail-grid">
           <div>
             <h4>Delivery address</h4>
-            <p>${o.customer.houseNo}, ${o.customer.area}</p>
-            <p>Pincode: ${o.customer.pincode}</p>
+            <p>${escapeHtml(o.customer.houseNo)}, ${escapeHtml(o.customer.area)}</p>
+            <p>Pincode: ${escapeHtml(o.customer.pincode)}</p>
+            <p><a href="tel:${escapeHtml(o.customer.phone)}">📞 Call ${escapeHtml(o.customer.phone)}</a></p>
           </div>
           <div>
-            <h4>Payment</h4>
-            <p>${o.paymentMethod}</p>
-            ${o.notes ? `<h4 style="margin-top:10px;">Notes</h4><p>${o.notes}</p>` : ''}
+            <h4>Order source</h4>
+            <p>${escapeHtml(o.paymentMethod)}</p>
+            ${o.notes ? `<h4 style="margin-top:10px;">Notes</h4><p>${escapeHtml(o.notes)}</p>` : ''}
           </div>
         </div>
         <table class="items-table">
           <thead><tr><th>Item</th><th>Weight</th><th>Qty</th><th>Amount</th></tr></thead>
           <tbody>
-            ${o.items.map((it) => `<tr><td>${it.name}</td><td>${it.weight}</td><td>${it.qty}</td><td>${formatINR(it.lineTotal)}</td></tr>`).join('')}
+            ${o.items.map((it) => `<tr><td>${escapeHtml(it.name)}</td><td>${it.weight}</td><td>${it.qty}</td><td>${formatINR(it.lineTotal)}</td></tr>`).join('')}
           </tbody>
         </table>
         <div class="status-actions">
-          ${STATUSES.map((s) => `<button data-status="${s}" data-order-id="${o.orderId}" class="${s === o.status ? 'current' : ''}">${s}</button>`).join('')}
+          ${STATUSES.map((st) => `<button data-status="${st}" data-order-id="${o.orderId}" class="${st === o.status ? 'current' : ''}">${st}</button>`).join('')}
         </div>
       </div>
     </div>
@@ -454,14 +701,26 @@ function renderOrders() {
 
   list.querySelectorAll('[data-toggle]').forEach((el) => {
     el.addEventListener('click', () => {
-      document.getElementById(`details-${el.dataset.toggle}`).classList.toggle('open');
+      const id = el.dataset.toggle;
+      const open = document.getElementById(`details-${id}`).classList.toggle('open');
+      if (open) OPEN_ORDERS.add(id); else OPEN_ORDERS.delete(id);
     });
   });
   list.querySelectorAll('[data-status]').forEach((btn) => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      await updateStatus(btn.dataset.orderId, btn.dataset.status);
-      refresh();
+      const order = ORDERS.find((o) => o.orderId === btn.dataset.orderId);
+      if (!order || order.status === btn.dataset.status) return;
+      const previous = order.status;
+      order.status = btn.dataset.status;
+      renderAll(); // graphs, counters and revenue update immediately
+      try {
+        await updateStatus(order.orderId, order.status);
+      } catch (err) {
+        order.status = previous; // save failed — put it back
+        renderAll();
+        alert(err.message || 'Could not update the order status. Please try again.');
+      }
     });
   });
 }
@@ -647,6 +906,19 @@ document.addEventListener('DOMContentLoaded', () => {
     showLogin();
   });
 
+  document.getElementById('bellBtn').addEventListener('click', () => switchTab('notifications'));
+  document.getElementById('markAllReadBtn').addEventListener('click', markAllRead);
+  document.getElementById('dogCloseBtn').addEventListener('click', hideDog);
+  document.getElementById('dogViewBtn').addEventListener('click', () => {
+    const id = document.getElementById('dogAlert').dataset.orderId;
+    if (id) openOrder(id);
+  });
+  document.getElementById('soundToggle').addEventListener('change', (e) => {
+    SOUND_ON = e.target.checked;
+    try { localStorage.setItem(LS_SOUND, SOUND_ON ? '1' : '0'); } catch { /* ignore */ }
+    if (SOUND_ON) playDing();
+  });
+
   document.querySelectorAll('.filter-chip').forEach((chip) => {
     chip.addEventListener('click', () => {
       document.querySelectorAll('.filter-chip').forEach((c) => c.classList.remove('active'));
@@ -666,19 +938,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.querySelectorAll('.admin-tab').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.admin-tab').forEach((t) => t.classList.remove('active'));
-      tab.classList.add('active');
-      ACTIVE_TAB = tab.dataset.tab;
-      document.getElementById('overviewPanel').hidden = ACTIVE_TAB !== 'overview';
-      document.getElementById('ordersPanel').hidden = ACTIVE_TAB !== 'orders';
-      document.getElementById('productsPanel').hidden = ACTIVE_TAB !== 'products';
-      document.getElementById('settingsPanel').hidden = ACTIVE_TAB !== 'settings';
-      // Re-render the charts every time this tab is shown: a canvas that was
-      // hidden (display:none) reports zero size, so Chart.js needs a fresh
-      // draw once it's actually visible.
-      if (ACTIVE_TAB === 'overview') renderOverview();
-    });
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
   });
 
   document.querySelectorAll('.date-chip').forEach((chip) => {
