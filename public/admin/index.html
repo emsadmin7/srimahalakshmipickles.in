@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Console — Sri Mahalakshmi Pickles &amp; Spices</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Yatra+One&family=Mukta:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<!-- ============== LOGIN ============== -->
+<div id="loginScreen" class="login-screen">
+  <form id="loginForm" class="login-card">
+    <div class="brand-mark">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="31" fill="#2E7D46"/>
+        <path d="M20 26h24v22a4 4 0 0 1-4 4H24a4 4 0 0 1-4-4V26z" fill="#FCEFC7"/>
+        <rect x="18" y="20" width="28" height="8" rx="3" fill="#1F5A32"/>
+        <rect x="26" y="12" width="12" height="9" rx="2" fill="#1F5A32"/>
+      </svg>
+    </div>
+    <h1>Admin console</h1>
+    <p class="muted">Sri Mahalakshmi Pickles &amp; Spices</p>
+    <div class="field">
+      <label for="adminPassword">Password</label>
+      <input type="password" id="adminPassword" placeholder="Enter admin password" required autofocus>
+    </div>
+    <p id="loginError" class="login-error"></p>
+    <button type="submit" class="btn btn-primary btn-block">Log in</button>
+  </form>
+</div>
+
+<!-- ============== DASHBOARD ============== -->
+<div id="dashboard" class="dashboard" hidden>
+  <header class="admin-header">
+    <div class="brand">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="31" fill="#2E7D46"/>
+        <path d="M20 26h24v22a4 4 0 0 1-4 4H24a4 4 0 0 1-4-4V26z" fill="#FCEFC7"/>
+        <rect x="18" y="20" width="28" height="8" rx="3" fill="#1F5A32"/>
+        <rect x="26" y="12" width="12" height="9" rx="2" fill="#1F5A32"/>
+      </svg>
+      <div class="brand-text">
+        <strong>Sri Mahalakshmi</strong>
+        <span>Order admin console</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline bell-btn" id="bellBtn" aria-label="Notifications">🔔<span class="count-badge" id="bellBadge" hidden>0</span></button>
+      <button class="btn btn-outline" id="refreshBtn">↻ Refresh</button>
+      <a class="btn btn-outline" href="/" target="_blank">View site</a>
+      <button class="btn btn-outline" id="logoutBtn">Log out</button>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <section class="stats-row" id="statsRow"></section>
+
+    <div class="admin-tabs">
+      <button class="admin-tab active" data-tab="overview">Dashboard</button>
+      <button class="admin-tab" data-tab="orders">Orders</button>
+      <button class="admin-tab" data-tab="notifications">Notifications <span class="count-badge" id="tabBadge" hidden>0</span></button>
+      <button class="admin-tab" data-tab="products">Products</button>
+      <button class="admin-tab" data-tab="settings">Settings</button>
+    </div>
+
+    <!-- ---------- Dashboard ---------- -->
+    <section class="overview-panel" id="overviewPanel">
+      <div class="date-filter-row">
+        <div class="date-filter-left">
+          <div class="date-filter-title">📅 Date range <span class="date-range-label" id="dateRangeLabel"></span></div>
+          <div class="date-presets" id="datePresets">
+            <button type="button" class="date-chip" data-range="today">Today</button>
+            <button type="button" class="date-chip" data-range="yesterday">Yesterday</button>
+            <button type="button" class="date-chip" data-range="7">Last 7 days</button>
+            <button type="button" class="date-chip" data-range="30">Last 30 days</button>
+            <button type="button" class="date-chip" data-range="thisMonth">This month</button>
+            <button type="button" class="date-chip" data-range="lastMonth">Last month</button>
+            <button type="button" class="date-chip" data-range="90">Last 90 days</button>
+            <button type="button" class="date-chip" data-range="all">All time</button>
+          </div>
+        </div>
+        <div class="date-custom">
+          <label>From <input type="date" id="dateFrom"></label>
+          <label>To <input type="date" id="dateTo"></label>
+          <button type="button" class="btn btn-primary btn-sm" id="applyDateRange">Apply</button>
+        </div>
+      </div>
+      <p class="chart-note">Revenue and revenue charts count only <strong>Confirmed</strong> and <strong>Delivered</strong> orders. Mark an order as Confirmed after you speak to the customer on call or WhatsApp, and the graphs update instantly.</p>
+
+      <section class="stats-row" id="overviewStatsRow"></section>
+
+      <div class="charts-grid">
+        <div class="chart-card chart-card-wide">
+          <h3 id="dailyChartTitle">Orders by day &amp; confirmed revenue</h3>
+          <canvas id="dailyChart" height="220"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Orders by status</h3>
+          <canvas id="statusChart" height="220"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Top products (confirmed revenue)</h3>
+          <canvas id="topProductsChart" height="220"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- Orders ---------- -->
+    <section class="orders-panel" id="ordersPanel" hidden>
+      <div class="panel-head">
+        <h2>Orders</h2>
+        <div class="filter-row">
+          <button class="filter-chip active" data-filter="All">All</button>
+          <button class="filter-chip" data-filter="Pending">Pending</button>
+          <button class="filter-chip" data-filter="Confirmed">Confirmed</button>
+          <button class="filter-chip" data-filter="Delivered">Delivered</button>
+        </div>
+      </div>
+      <div id="ordersList" class="orders-list"></div>
+    </section>
+
+    <!-- ---------- Notifications ---------- -->
+    <section class="orders-panel" id="notificationsPanel" hidden>
+      <div class="panel-head">
+        <h2>Notifications</h2>
+        <div class="notif-tools">
+          <label class="sound-toggle"><input type="checkbox" id="soundToggle" checked> Sound</label>
+          <button type="button" class="btn btn-outline btn-sm" id="markAllReadBtn">Mark all read</button>
+        </div>
+      </div>
+      <div id="notificationsList" class="notif-list"></div>
+    </section>
+
+    <!-- ---------- Products ---------- -->
+    <section class="products-panel" id="productsPanel" hidden>
+      <div class="panel-head">
+        <h2>Products</h2>
+        <p class="muted" style="margin:0;">Upload a photo, edit price/description, or add and remove products.</p>
+        <button type="button" class="btn btn-primary btn-sm" id="addProductBtn">+ Add product</button>
+      </div>
+      <div class="filter-row" id="productFilterRow">
+        <button class="product-filter-chip active" data-pfilter="all">All</button>
+        <button class="product-filter-chip" data-pfilter="vegPickle">Veg Pickles</button>
+        <button class="product-filter-chip" data-pfilter="nonvegPickle">Non-Veg Pickles</button>
+        <button class="product-filter-chip" data-pfilter="podi">Podi &amp; Karam</button>
+      </div>
+      <div id="addProductForm" class="add-product-form" hidden>
+        <div class="form-row">
+          <label>Name<input type="text" id="newProdName" placeholder="e.g. Mango Pickle"></label>
+          <label>Category
+            <select id="newProdCategory">
+              <option value="pickle">Pickle</option>
+              <option value="podi">Podi &amp; Karam</option>
+            </select>
+          </label>
+          <label>Veg?
+            <select id="newProdVeg">
+              <option value="true">Veg</option>
+              <option value="false">Non-veg</option>
+            </select>
+          </label>
+          <label>Price / 500g (₹)<input type="number" min="1" step="1" id="newProdPrice"></label>
+        </div>
+        <label class="form-row-full">Description<textarea id="newProdDesc" rows="2" placeholder="Short description shown on the website"></textarea></label>
+        <div class="form-actions">
+          <button type="button" class="btn btn-outline btn-sm" id="cancelAddProduct">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" id="saveAddProduct">Add product</button>
+        </div>
+        <div class="save-status" id="addProductStatus"></div>
+      </div>
+      <div id="productsList" class="products-grid"></div>
+    </section>
+
+    <!-- ---------- Settings ---------- -->
+    <section class="settings-panel" id="settingsPanel" hidden>
+      <div class="panel-head">
+        <h2>Settings</h2>
+        <p class="muted" style="margin:0;">Website logo and admin password.</p>
+      </div>
+      <div class="settings-form logo-settings">
+        <h3 style="margin:0 0 4px;">Website logo</h3>
+        <p class="muted" style="margin:0 0 10px;">Shown at the top-left of the website. PNG, JPG or WEBP, max 5MB.</p>
+        <div class="logo-preview-box" id="logoPreviewBox"><span class="muted">No logo uploaded</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+          <button type="button" class="btn btn-primary btn-sm" id="logoUploadBtn">Upload logo</button>
+          <button type="button" class="btn btn-outline btn-sm" id="logoRemoveBtn" hidden>Remove logo</button>
+        </div>
+        <input type="file" id="logoFileInput" accept="image/png,image/jpeg,image/webp" hidden>
+        <div class="save-status" id="logoStatus"></div>
+      </div>
+      <form id="changePasswordForm" class="settings-form">
+        <label>Current password<input type="password" id="currentPassword" required autocomplete="current-password"></label>
+        <label>New password<input type="password" id="newPassword" required minlength="4" autocomplete="new-password"></label>
+        <label>Confirm new password<input type="password" id="confirmPassword" required minlength="4" autocomplete="new-password"></label>
+        <button type="submit" class="btn btn-primary btn-sm">Update password</button>
+        <div class="save-status" id="passwordStatus"></div>
+      </form>
+    </section>
+  </main>
+</div>
+
+<!-- ============== NEW ORDER ALERT (animated dog) ============== -->
+<div class="dog-alert" id="dogAlert" role="alert" aria-live="assertive">
+  <div class="dog-stage">
+    <svg class="dog-svg" viewBox="0 0 170 140" aria-hidden="true">
+      <!-- tail -->
+      <g class="dog-tail"><path d="M40 84 C22 76 16 58 26 46" stroke="#C98B4E" stroke-width="10" fill="none" stroke-linecap="round"/></g>
+      <!-- body & legs -->
+      <ellipse cx="78" cy="96" rx="42" ry="25" fill="#D9A066"/>
+      <rect x="50" y="104" width="13" height="26" rx="6" fill="#C98B4E"/>
+      <rect x="92" y="104" width="13" height="26" rx="6" fill="#C98B4E"/>
+      <ellipse cx="56" cy="130" rx="10" ry="5" fill="#B87A3E"/>
+      <ellipse cx="99" cy="130" rx="10" ry="5" fill="#B87A3E"/>
+      <ellipse cx="78" cy="106" rx="22" ry="13" fill="#F6DDB8"/>
+      <!-- head -->
+      <g class="dog-head">
+        <g class="dog-ear-l"><ellipse cx="92" cy="52" rx="10" ry="20" fill="#8B5A2B" transform="rotate(18 92 52)"/></g>
+        <g class="dog-ear-r"><ellipse cx="134" cy="52" rx="10" ry="20" fill="#8B5A2B" transform="rotate(-18 134 52)"/></g>
+        <circle cx="113" cy="60" r="28" fill="#E8B77A"/>
+        <ellipse cx="113" cy="72" rx="15" ry="11" fill="#F6DDB8"/>
+        <g class="dog-eye"><circle cx="103" cy="56" r="4" fill="#2B1B12"/><circle cx="104.3" cy="54.6" r="1.3" fill="#fff"/></g>
+        <g class="dog-eye"><circle cx="123" cy="56" r="4" fill="#2B1B12"/><circle cx="124.3" cy="54.6" r="1.3" fill="#fff"/></g>
+        <ellipse cx="113" cy="65" rx="5.5" ry="3.8" fill="#2B1B12"/>
+        <path d="M105 74 Q113 82 121 74" stroke="#2B1B12" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <ellipse class="dog-tongue" cx="113" cy="80" rx="4.2" ry="5.5" fill="#E86A7A"/>
+      </g>
+      <!-- collar -->
+      <rect x="94" y="90" width="38" height="7" rx="3.5" fill="#7A1E17"/>
+      <circle cx="113" cy="101" r="4" fill="#E0A62B"/>
+    </svg>
+    <div class="dog-bubble">
+      <button type="button" class="dog-close" id="dogCloseBtn" aria-label="Dismiss">&times;</button>
+      <div class="dog-title">🛒 New order!</div>
+      <div class="dog-text" id="dogText"></div>
+      <div class="dog-sub" id="dogSub"></div>
+      <div class="dog-actions">
+        <button type="button" class="btn btn-primary btn-sm" id="dogViewBtn">View order</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="imageFileInput" accept="image/png,image/jpeg,image/webp" hidden>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>
